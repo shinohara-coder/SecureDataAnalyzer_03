@@ -9,7 +9,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 
-namespace SecureDataAnalyzer_02.WPF
+namespace SecureDataAnalyzer_02.WPF.Views
 {
     /// <summary>
     /// Interaction logic for MainWindow.xaml
