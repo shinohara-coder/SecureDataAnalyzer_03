@@ -4,8 +4,6 @@
              Height="80">
     <Border Background="#F3F3F3" BorderBrush="Gray" BorderThickness="0,0,0,1">
         <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="50,0,0,0">
-            <TextBlock Text="領域0: リボンパネル (CSV読込・設定)" 
-                       FontSize="14" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,20,0"/>
 
             <Button x:Name="ShowGraphBtn" 
                     Content="グラフエリアを表示" 
