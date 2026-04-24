@@ -13,6 +13,8 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
         private void HideGraph_Click(object sender, RoutedEventArgs e)
         {
             var btn = sender as Button;
+            if (btn == null) return;
+
             string targetName = btn.Tag.ToString();
             int graphNum = 0;
 
@@ -22,8 +24,9 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
             else if (targetName == "Graph5") { Graph5.Visibility = Visibility.Collapsed; graphNum = 5; }
             else if (targetName == "Graph6") { Graph6.Visibility = Visibility.Collapsed; graphNum = 6; }
 
+            // MainWindow経由でリボンのチェックを外す
             var mainWindow = Window.GetWindow(this) as MainWindow;
-            if (mainWindow != null)
+            if (mainWindow != null && mainWindow.MyRibbon != null)
             {
                 mainWindow.MyRibbon.UpdateCheckBox(graphNum, false);
             }
