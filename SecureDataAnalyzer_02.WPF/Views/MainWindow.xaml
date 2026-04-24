@@ -1,19 +1,15 @@
 ﻿<Window x:Class="SecureDataAnalyzer_02.WPF.Views.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:comp="clr-namespace:SecureDataAnalyzer_02.WPF.Views.Components"
-        mc:Ignorable="d"
         Title="SecureDataAnalyzer - 神和アルミ様モック" Height="700" Width="1200">
-
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <comp:RibbonPanel x:Name="MyRibbon" Grid.Row="0" Visibility="Visible"/>
+        <comp:RibbonPanel x:Name="MyRibbon" Grid.Row="0"/>
 
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
@@ -24,34 +20,17 @@
 
             <comp:DataPreview Grid.Column="0"/>
 
-            <GridSplitter x:Name="MySplitter" Grid.Column="1" 
-                          HorizontalAlignment="Center" VerticalAlignment="Stretch" 
-                          Width="5" Background="#CCC" ShowsPreview="True"/>
+            <GridSplitter x:Name="MySplitter" Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Stretch" Width="5" Background="#CCC" ShowsPreview="True"/>
 
             <Grid x:Name="GraphArea" Grid.Column="2">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <comp:GraphDisplay x:Name="MyGraphContent" />
                 </ScrollViewer>
-
-                <Button Content="×" 
-                        VerticalAlignment="Top" HorizontalAlignment="Right" 
-                        Width="30" Height="30" Margin="5" Background="#FFEDBBBB"
-                        Click="CloseGraph_Click"/>
+                <Button Content="×" VerticalAlignment="Top" HorizontalAlignment="Right" Width="30" Height="30" Margin="5" Background="#FFEDBBBB" Click="CloseGraph_Click"/>
             </Grid>
 
-            <Button x:Name="OpenGraphBtn" 
-                    Grid.Column="0" Grid.ColumnSpan="3"
-                    Content="◀ グラフを表示" 
-                    VerticalAlignment="Top" HorizontalAlignment="Right" 
-                    Width="100" Height="30" Margin="0,5,5,0"
-                    Visibility="Collapsed"
-                    Click="OpenGraph_Click"/>
-
-            <Button x:Name="ToggleRibbonBtn" 
-                    Content="▲" 
-                    VerticalAlignment="Top" HorizontalAlignment="Left" 
-                    Width="30" Height="25" Margin="5,5,0,0"
-                    Click="ToggleRibbon_Click"/>
+            <Button x:Name="OpenGraphBtn" Grid.Column="0" Grid.ColumnSpan="3" Content="◀ グラフを表示" VerticalAlignment="Top" HorizontalAlignment="Right" Width="100" Height="30" Margin="0,5,5,0" Visibility="Collapsed" Click="OpenGraph_Click"/>
+            <Button x:Name="ToggleRibbonBtn" Content="▲" VerticalAlignment="Top" HorizontalAlignment="Left" Width="30" Height="25" Margin="5,5,0,0" Click="ToggleRibbon_Click"/>
         </Grid>
     </Grid>
 </Window>

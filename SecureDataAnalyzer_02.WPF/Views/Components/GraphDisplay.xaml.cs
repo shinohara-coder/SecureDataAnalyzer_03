@@ -12,29 +12,31 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
 
         private void HideGraph_Click(object sender, RoutedEventArgs e)
         {
-            // ボタンの「Tag」に書いてある名前を頼りに、どのグラフを隠すか判断します
             var btn = sender as Button;
             string targetName = btn.Tag.ToString();
+            int graphNum = 0;
 
-            if (targetName == "Graph2") Graph2.Visibility = Visibility.Collapsed;
-            if (targetName == "Graph3") Graph3.Visibility = Visibility.Collapsed;
-            if (targetName == "Graph4") Graph4.Visibility = Visibility.Collapsed;
-            if (targetName == "Graph5") Graph5.Visibility = Visibility.Collapsed;
-            if (targetName == "Graph6") Graph6.Visibility = Visibility.Collapsed;
+            if (targetName == "Graph2") { Graph2.Visibility = Visibility.Collapsed; graphNum = 2; }
+            else if (targetName == "Graph3") { Graph3.Visibility = Visibility.Collapsed; graphNum = 3; }
+            else if (targetName == "Graph4") { Graph4.Visibility = Visibility.Collapsed; graphNum = 4; }
+            else if (targetName == "Graph5") { Graph5.Visibility = Visibility.Collapsed; graphNum = 5; }
+            else if (targetName == "Graph6") { Graph6.Visibility = Visibility.Collapsed; graphNum = 6; }
+
+            var mainWindow = Window.GetWindow(this) as MainWindow;
+            if (mainWindow != null)
+            {
+                mainWindow.MyRibbon.UpdateCheckBox(graphNum, false);
+            }
         }
 
-        // 外側（リボンなど）から表示状態を変えるためのメソッド
         public void SetGraphVisibility(int number, bool isVisible)
         {
             var visibility = isVisible ? Visibility.Visible : Visibility.Collapsed;
-            switch (number)
-            {
-                case 2: Graph2.Visibility = visibility; break;
-                case 3: Graph3.Visibility = visibility; break;
-                case 4: Graph4.Visibility = visibility; break;
-                case 5: Graph5.Visibility = visibility; break;
-                case 6: Graph6.Visibility = visibility; break;
-            }
+            if (number == 2) Graph2.Visibility = visibility;
+            else if (number == 3) Graph3.Visibility = visibility;
+            else if (number == 4) Graph4.Visibility = visibility;
+            else if (number == 5) Graph5.Visibility = visibility;
+            else if (number == 6) Graph6.Visibility = visibility;
         }
     }
 }

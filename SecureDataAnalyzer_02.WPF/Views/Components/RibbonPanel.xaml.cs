@@ -13,21 +13,24 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
         private void CheckBox_Click(object sender, RoutedEventArgs e)
         {
             var chk = sender as CheckBox;
+            if (chk == null) return;
             int graphNum = int.Parse(chk.Tag.ToString());
             bool isVisible = chk.IsChecked ?? true;
 
-            // MainWindowを通じてGraphDisplayを操作する
             var mainWindow = Window.GetWindow(this) as MainWindow;
-            if (mainWindow != null)
+            if (mainWindow != null && mainWindow.MyGraphContent != null)
             {
-                // GraphDisplayの中身を直接操作します
-                // MainWindow.xamlでGraphDisplayに x:Name="MyGraphContent" と付ける必要があります（後述）
                 mainWindow.MyGraphContent.SetGraphVisibility(graphNum, isVisible);
             }
         }
 
-        // 以前のメソッド
-        public void SetShowButtonVisibility(Visibility vis) { /* 以前と同じ */ }
-        private void ShowGraphBtn_Click(object sender, RoutedEventArgs e) { /* 以前と同じ */ }
+        public void UpdateCheckBox(int graphNum, bool isChecked)
+        {
+            if (graphNum == 2) Chk2.IsChecked = isChecked;
+            else if (graphNum == 3) Chk3.IsChecked = isChecked;
+            else if (graphNum == 4) Chk4.IsChecked = isChecked;
+            else if (graphNum == 5) Chk5.IsChecked = isChecked;
+            else if (graphNum == 6) Chk6.IsChecked = isChecked;
+        }
     }
 }

@@ -6,19 +6,12 @@
         <Grid>
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="20,0">
                 <TextBlock Text="表示グラフ：" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                <CheckBox Content="領域2" IsChecked="True" Margin="5" Click="CheckBox_Click" Tag="2"/>
-                <CheckBox Content="領域3" IsChecked="True" Margin="5" Click="CheckBox_Click" Tag="3"/>
-                <CheckBox Content="領域4" IsChecked="True" Margin="5" Click="CheckBox_Click" Tag="4"/>
-                <CheckBox Content="領域5" IsChecked="True" Margin="5" Click="CheckBox_Click" Tag="5"/>
-                <CheckBox Content="領域6" IsChecked="True" Margin="5" Click="CheckBox_Click" Tag="6"/>
+                <CheckBox x:Name="Chk2" Content="グラフ1" IsChecked="True" Margin="5" Click="CheckBox_Click" Tag="2"/>
+                <CheckBox x:Name="Chk3" Content="グラフ2" IsChecked="True" Margin="5" Click="CheckBox_Click" Tag="3"/>
+                <CheckBox x:Name="Chk4" Content="グラフ3" IsChecked="True" Margin="5" Click="CheckBox_Click" Tag="4"/>
+                <CheckBox x:Name="Chk5" Content="グラフ4" IsChecked="True" Margin="5" Click="CheckBox_Click" Tag="5"/>
+                <CheckBox x:Name="Chk6" Content="グラフ5" IsChecked="True" Margin="5" Click="CheckBox_Click" Tag="6"/>
             </StackPanel>
-
-            <Button x:Name="ShowGraphBtn" 
-                    Content="グラフエリアを表示" 
-                    Padding="10,5" Margin="10"
-                    HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                    Visibility="Collapsed"
-                    Click="ShowGraphBtn_Click"/>
         </Grid>
     </Border>
 </UserControl>
