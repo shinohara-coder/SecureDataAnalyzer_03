@@ -3,13 +3,15 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              Height="80">
     <Border Background="#F3F3F3" BorderBrush="Gray" BorderThickness="0,0,0,1">
-        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="50,0,0,0">
-
+        <Grid>
             <Button x:Name="ShowGraphBtn" 
                     Content="グラフエリアを表示" 
                     Padding="10,5" 
+                    Margin="10"
+                    HorizontalAlignment="Right" 
+                    VerticalAlignment="Bottom"
                     Visibility="Collapsed"
                     Click="ShowGraphBtn_Click"/>
-        </StackPanel>
+        </Grid>
     </Border>
 </UserControl>
