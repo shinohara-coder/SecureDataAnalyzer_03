@@ -20,16 +20,14 @@
 
             <comp:DataPreview Grid.Column="0"/>
 
-            <GridSplitter x:Name="MySplitter" Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Stretch" Width="5" Background="#CCC" ShowsPreview="True"/>
+            <GridSplitter x:Name="MySplitter" Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Stretch" Width="5" Background="#CCC"/>
 
             <Grid x:Name="GraphArea" Grid.Column="2">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <comp:GraphDisplay x:Name="MyGraphContent" />
                 </ScrollViewer>
-                <Button Content="×" VerticalAlignment="Top" HorizontalAlignment="Right" Width="30" Height="30" Margin="5" Background="#FFEDBBBB" Click="CloseGraph_Click"/>
             </Grid>
 
-            <Button x:Name="OpenGraphBtn" Grid.Column="0" Grid.ColumnSpan="3" Content="◀ グラフを表示" VerticalAlignment="Top" HorizontalAlignment="Right" Width="100" Height="30" Margin="0,5,5,0" Visibility="Collapsed" Click="OpenGraph_Click"/>
             <Button x:Name="ToggleRibbonBtn" Content="▲" VerticalAlignment="Top" HorizontalAlignment="Left" Width="30" Height="25" Margin="5,5,0,0" Click="ToggleRibbon_Click"/>
         </Grid>
     </Grid>

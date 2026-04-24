@@ -14,7 +14,6 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
         {
             var btn = sender as Button;
             if (btn == null) return;
-
             string targetName = btn.Tag.ToString();
             int graphNum = 0;
 
@@ -24,11 +23,24 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
             else if (targetName == "Graph5") { Graph5.Visibility = Visibility.Collapsed; graphNum = 5; }
             else if (targetName == "Graph6") { Graph6.Visibility = Visibility.Collapsed; graphNum = 6; }
 
-            // MainWindow経由でリボンのチェックを外す
             var mainWindow = Window.GetWindow(this) as MainWindow;
-            if (mainWindow != null && mainWindow.MyRibbon != null)
+            if (mainWindow != null)
             {
-                mainWindow.MyRibbon.UpdateCheckBox(graphNum, false);
+                mainWindow.MyRibbon?.UpdateCheckBox(graphNum, false);
+
+                // 全て非表示チェック
+                if (Graph2.Visibility == Visibility.Collapsed && Graph3.Visibility == Visibility.Collapsed &&
+                    Graph4.Visibility == Visibility.Collapsed && Graph5.Visibility == Visibility.Collapsed &&
+                    Graph6.Visibility == Visibility.Collapsed)
+                {
+                    mainWindow.GraphArea.Visibility = Visibility.Collapsed;
+                    mainWindow.MySplitter.Visibility = Visibility.Collapsed;
+                    mainWindow.GraphColumn.Width = new GridLength(0);
+                    if (mainWindow.MyRibbon != null)
+                    {
+                        mainWindow.MyRibbon.ToggleGraphAreaBtn.Content = "グラフ表示";
+                    }
+                }
             }
         }
 

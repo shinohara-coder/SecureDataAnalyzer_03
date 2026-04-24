@@ -9,6 +9,7 @@ namespace SecureDataAnalyzer_02.WPF.Views
             InitializeComponent();
         }
 
+        // リボンパネルの表示/非表示を切り替える
         private void ToggleRibbon_Click(object sender, RoutedEventArgs e)
         {
             if (MyRibbon.Visibility == Visibility.Visible)
@@ -23,20 +24,7 @@ namespace SecureDataAnalyzer_02.WPF.Views
             }
         }
 
-        private void CloseGraph_Click(object sender, RoutedEventArgs e)
-        {
-            GraphArea.Visibility = Visibility.Collapsed;
-            MySplitter.Visibility = Visibility.Collapsed;
-            GraphColumn.Width = new GridLength(0);
-            OpenGraphBtn.Visibility = Visibility.Visible;
-        }
-
-        private void OpenGraph_Click(object sender, RoutedEventArgs e)
-        {
-            GraphArea.Visibility = Visibility.Visible;
-            MySplitter.Visibility = Visibility.Visible;
-            GraphColumn.Width = new GridLength(1, GridUnitType.Star);
-            OpenGraphBtn.Visibility = Visibility.Collapsed;
-        }
+        // 【注意】以前ここにあった CloseGraph_Click と OpenGraph_Click は、
+        // リボン側のボタンに統合されたため、MainWindow.xaml から呼び出しがなければ削除可能です。
     }
 }
