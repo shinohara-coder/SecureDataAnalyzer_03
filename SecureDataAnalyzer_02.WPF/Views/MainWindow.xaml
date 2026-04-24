@@ -30,7 +30,7 @@
 
             <Grid x:Name="GraphArea" Grid.Column="2">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <comp:GraphDisplay />
+                    <comp:GraphDisplay x:Name="MyGraphContent" />
                 </ScrollViewer>
 
                 <Button Content="×" 
