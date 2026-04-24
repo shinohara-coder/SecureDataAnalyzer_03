@@ -4,14 +4,6 @@
              Height="80">
     <Border Background="#F3F3F3" BorderBrush="Gray" BorderThickness="0,0,0,1">
         <Grid>
-            <Button x:Name="ShowGraphBtn" 
-                    Content="グラフエリアを表示" 
-                    Padding="10,5" 
-                    Margin="10"
-                    HorizontalAlignment="Right" 
-                    VerticalAlignment="Bottom"
-                    Visibility="Collapsed"
-                    Click="ShowGraphBtn_Click"/>
         </Grid>
     </Border>
 </UserControl>

@@ -13,7 +13,7 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <comp:RibbonPanel x:Name="MyRibbon" Grid.Row="0" Visibility="Visible"/>
+        <comp:RibbonPanel x:Name="MyRibbon" Grid.Row="0"/>
 
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
@@ -25,11 +25,8 @@
             <comp:DataPreview Grid.Column="0"/>
 
             <GridSplitter x:Name="MySplitter" Grid.Column="1" 
-                          HorizontalAlignment="Center" 
-                          VerticalAlignment="Stretch" 
-                          Width="5" 
-                          Background="#CCC"
-                          ShowsPreview="True"/>
+                          HorizontalAlignment="Center" VerticalAlignment="Stretch" 
+                          Width="5" Background="#CCC" ShowsPreview="True"/>
 
             <Grid x:Name="GraphArea" Grid.Column="2">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -41,10 +38,17 @@
                         Width="30" Height="30" Margin="5" Background="#FFEDBBBB"
                         Click="CloseGraph_Click"/>
             </Grid>
+
+            <Button x:Name="OpenGraphBtn" 
+                    Grid.Column="0" Grid.ColumnSpan="3"
+                    Content="◀ グラフを表示" 
+                    VerticalAlignment="Top" HorizontalAlignment="Right" 
+                    Width="100" Height="30" Margin="0,5,5,0"
+                    Visibility="Collapsed"
+                    Click="OpenGraph_Click"/>
         </Grid>
 
-        <Button x:Name="ToggleRibbonBtn" 
-                Content="▲" 
+        <Button x:Name="ToggleRibbonBtn" Content="▲" 
                 VerticalAlignment="Top" HorizontalAlignment="Left" 
                 Width="30" Height="25" Margin="5,2,0,0"
                 Click="ToggleRibbon_Click"/>
