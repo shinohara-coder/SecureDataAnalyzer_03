@@ -13,19 +13,32 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <comp:RibbonPanel Grid.Row="0"/>
+        <comp:RibbonPanel x:Name="MyRibbon" Grid.Row="0" Visibility="Visible"/>
 
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="2*"/>
-                <ColumnDefinition Width="1*"/>
+                <ColumnDefinition x:Name="GraphColumn" Width="1*"/>
             </Grid.ColumnDefinitions>
 
             <comp:DataPreview Grid.Column="0"/>
 
-            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
-                <comp:GraphDisplay />
-            </ScrollViewer>
+            <Grid x:Name="GraphArea" Grid.Column="1">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <comp:GraphDisplay />
+                </ScrollViewer>
+
+                <Button Content="×" 
+                        VerticalAlignment="Top" HorizontalAlignment="Right" 
+                        Width="30" Height="30" Margin="5" Background="#FFEDBBBB"
+                        Click="CloseGraph_Click"/>
+            </Grid>
         </Grid>
+
+        <Button x:Name="ToggleRibbonBtn" 
+                Content="▲" 
+                VerticalAlignment="Top" HorizontalAlignment="Left" 
+                Width="30" Height="25" Margin="5,2,0,0"
+                Click="ToggleRibbon_Click"/>
     </Grid>
 </Window>

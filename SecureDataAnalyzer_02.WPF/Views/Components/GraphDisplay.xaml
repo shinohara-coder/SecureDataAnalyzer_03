@@ -3,19 +3,19 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <StackPanel Background="#E9E9E9">
         <Border Height="200" Margin="5" Background="White" BorderBrush="Silver" BorderThickness="1">
-            <TextBlock Text="領域2: グラフ"/>
+            <TextBlock Text="領域2: グラフ" VerticalAlignment="Center" HorizontalAlignment="Center"/>
         </Border>
         <Border Height="200" Margin="5" Background="White" BorderBrush="Silver" BorderThickness="1">
-            <TextBlock Text="領域3: グラフ"/>
+            <TextBlock Text="領域3: グラフ" VerticalAlignment="Center" HorizontalAlignment="Center"/>
         </Border>
         <Border Height="200" Margin="5" Background="White" BorderBrush="Silver" BorderThickness="1">
-            <TextBlock Text="領域4: グラフ"/>
+            <TextBlock Text="領域4: グラフ" VerticalAlignment="Center" HorizontalAlignment="Center"/>
         </Border>
         <Border Height="200" Margin="5" Background="White" BorderBrush="Silver" BorderThickness="1">
-            <TextBlock Text="領域5: グラフ"/>
+            <TextBlock Text="領域5: グラフ" VerticalAlignment="Center" HorizontalAlignment="Center"/>
         </Border>
-        <Border Height="200" Margin="6" Background="White" BorderBrush="Silver" BorderThickness="1">
-            <TextBlock Text="領域6: グラフ"/>
+        <Border Height="200" Margin="5" Background="White" BorderBrush="Silver" BorderThickness="1">
+            <TextBlock Text="領域6: グラフ" VerticalAlignment="Center" HorizontalAlignment="Center"/>
         </Border>
     </StackPanel>
 </UserControl>

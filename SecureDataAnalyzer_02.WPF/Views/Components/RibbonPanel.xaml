@@ -1,7 +1,17 @@
 ﻿<UserControl x:Class="SecureDataAnalyzer_02.WPF.Views.Components.RibbonPanel"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <Border Background="#F3F3F3" BorderBrush="Gray" BorderThickness="0,0,0,1" Height="80">
-        <TextBlock Text="領域0: リボンパネル (CSV読込・設定)" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Height="80">
+    <Border Background="#F3F3F3" BorderBrush="Gray" BorderThickness="0,0,0,1">
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="50,0,0,0">
+            <TextBlock Text="領域0: リボンパネル (CSV読込・設定)" 
+                       FontSize="14" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,20,0"/>
+
+            <Button x:Name="ShowGraphBtn" 
+                    Content="グラフエリアを表示" 
+                    Padding="10,5" 
+                    Visibility="Collapsed"
+                    Click="ShowGraphBtn_Click"/>
+        </StackPanel>
     </Border>
 </UserControl>
