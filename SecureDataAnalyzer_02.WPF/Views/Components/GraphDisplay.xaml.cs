@@ -10,6 +10,9 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
             InitializeComponent();
         }
 
+        /// <summary>
+        /// 各グラフ内の「×」ボタン押下時の処理
+        /// </summary>
         private void HideGraph_Click(object sender, RoutedEventArgs e)
         {
             var btn = sender as Button;
@@ -17,6 +20,7 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
             string targetName = btn.Tag.ToString();
             int graphNum = 0;
 
+            // 1. ターゲットのグラフを隠す
             if (targetName == "Graph2") { Graph2.Visibility = Visibility.Collapsed; graphNum = 2; }
             else if (targetName == "Graph3") { Graph3.Visibility = Visibility.Collapsed; graphNum = 3; }
             else if (targetName == "Graph4") { Graph4.Visibility = Visibility.Collapsed; graphNum = 4; }
@@ -26,16 +30,19 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
             var mainWindow = Window.GetWindow(this) as MainWindow;
             if (mainWindow != null)
             {
+                // 2. リボンのチェックボックスをOFFにする（状態の保存）
                 mainWindow.MyRibbon?.UpdateCheckBox(graphNum, false);
 
-                // 全て非表示チェック
+                // 3. すべてのグラフが消えたかチェック
                 if (Graph2.Visibility == Visibility.Collapsed && Graph3.Visibility == Visibility.Collapsed &&
                     Graph4.Visibility == Visibility.Collapsed && Graph5.Visibility == Visibility.Collapsed &&
                     Graph6.Visibility == Visibility.Collapsed)
                 {
+                    // エリア全体を閉じ、ボタンの文言を切り替える
                     mainWindow.GraphArea.Visibility = Visibility.Collapsed;
                     mainWindow.MySplitter.Visibility = Visibility.Collapsed;
                     mainWindow.GraphColumn.Width = new GridLength(0);
+
                     if (mainWindow.MyRibbon != null)
                     {
                         mainWindow.MyRibbon.ToggleGraphAreaBtn.Content = "グラフ表示";
@@ -44,6 +51,9 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
             }
         }
 
+        /// <summary>
+        /// 外部（リボン）から表示状態を切り替えるためのメソッド
+        /// </summary>
         public void SetGraphVisibility(int number, bool isVisible)
         {
             var visibility = isVisible ? Visibility.Visible : Visibility.Collapsed;
