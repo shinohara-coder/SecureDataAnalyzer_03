@@ -1,6 +1,7 @@
 ﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Input;
 
 namespace SecureDataAnalyzer_02.WPF.Views.Components
 {
@@ -11,20 +12,15 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
             InitializeComponent();
         }
 
-        /// <summary>
-        /// 新しいグラフを作成し、最上部に追加します。上限は5個です。
-        /// </summary>
         public void AddNewGraph(string x, string y, string type)
         {
-            // 1. 上限チェック（現在表示されているグラフの数を数える）
             if (GraphContainer.Children.Count >= 5)
             {
-                MessageBox.Show("表示できるグラフの数が上限（5個）に達しました。\n新しいグラフを作成するには、既存のグラフを削除してください。",
-                                "上限に達しました", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show("表示できるグラフの数が上限（5個）に達しました。", "上限通知");
                 return;
             }
 
-            // 2. グラフ枠（Border）を動的に生成
+            // 【修正ポイント】Borderの初期化を正しい文法に修正
             Border graphBorder = new Border
             {
                 Height = 200,
@@ -35,10 +31,7 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
                 CornerRadius = new CornerRadius(5)
             };
 
-            // 3. 内部のレイアウト（Grid）
             Grid innerGrid = new Grid();
-
-            // 削除ボタン（×）
             Button closeBtn = new Button
             {
                 Content = "×",
@@ -46,14 +39,11 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
                 VerticalAlignment = VerticalAlignment.Top,
                 Width = 25,
                 Height = 25,
-                Margin = new Thickness(0, 0, 0, 0),
                 Background = Brushes.Transparent,
-                BorderThickness = new Thickness(0),
-                Cursor = System.Windows.Input.Cursors.Hand
+                BorderThickness = new Thickness(0)
             };
-            closeBtn.Click += (s, e) => RemoveGraph(graphBorder); // 削除イベント
+            closeBtn.Click += (s, e) => RemoveGraph(graphBorder);
 
-            // 情報テキスト
             TextBlock infoText = new TextBlock
             {
                 Text = $"【最新グラフ】\n形式：{type}\nX軸：{x}\nY軸：{y}",
@@ -61,30 +51,20 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
                 HorizontalAlignment = HorizontalAlignment.Center,
                 TextAlignment = TextAlignment.Center,
                 FontWeight = FontWeights.Bold,
-                FontSize = 14,
-                Foreground = Brushes.Black
+                IsHitTestVisible = false // テキスト上でホイールしても邪魔しないように
             };
 
             innerGrid.Children.Add(infoText);
             innerGrid.Children.Add(closeBtn);
             graphBorder.Child = innerGrid;
 
-            // 4. ★最重要：最上部（インデックス0）に挿入
+            // リストの先頭に挿入
             GraphContainer.Children.Insert(0, graphBorder);
-
-            // 5. リボン側のチェックボックスとの同期（オプション）
-            // ※動的生成の場合、固定のChk2〜6との紐付けが難しいため、
-            // 　必要に応じてリボン側のUIも動的にするか、現状はメッセージ表示を優先します。
         }
 
-        /// <summary>
-        /// 特定のグラフを削除する
-        /// </summary>
         private void RemoveGraph(Border target)
         {
             GraphContainer.Children.Remove(target);
-
-            // 全て消えたらエリアを閉じる処理
             if (GraphContainer.Children.Count == 0)
             {
                 var mainWindow = Window.GetWindow(this) as MainWindow;
@@ -93,21 +73,28 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
                     mainWindow.GraphArea.Visibility = Visibility.Collapsed;
                     mainWindow.MySplitter.Visibility = Visibility.Collapsed;
                     mainWindow.GraphColumn.Width = new GridLength(0);
-                    if (mainWindow.MyRibbon != null)
-                    {
-                        mainWindow.MyRibbon.ToggleGraphAreaBtn.Content = "グラフ表示";
-                    }
                 }
             }
         }
 
         /// <summary>
-        /// 既存のチェックボックス連動用メソッド（互換性のために残す）
+        /// マウスホイールスクロールの強制制御
         /// </summary>
-        public void SetGraphVisibility(int number, bool isVisible)
+        private void ScrollViewer_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
         {
-            // 動的生成に変更したため、インデックスに基づいた制御が必要な場合はここで実装
-            // 今回は「新しい順に上」という挙動を優先しています
+            ScrollViewer scv = sender as ScrollViewer;
+            if (scv == null) return;
+
+            // スクロール位置を計算（e.Deltaが負なら下へスクロール）
+            double nextOffset = scv.VerticalOffset - e.Delta;
+
+            if (nextOffset < 0) nextOffset = 0;
+            else if (nextOffset > scv.ScrollableHeight) nextOffset = scv.ScrollableHeight;
+
+            scv.ScrollToVerticalOffset(nextOffset);
+            e.Handled = true; // イベントをここで完了させる
         }
+
+        public void SetGraphVisibility(int number, bool isVisible) { }
     }
 }
