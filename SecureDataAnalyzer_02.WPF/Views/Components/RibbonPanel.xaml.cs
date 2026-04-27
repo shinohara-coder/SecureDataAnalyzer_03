@@ -1,11 +1,16 @@
 ﻿using System;
 using System.Data;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using SecureDataAnalyzer_02.WPF.Views.Components;
 
 namespace SecureDataAnalyzer_02.WPF.Views.Components
 {
+    /// <summary>
+    /// 画面上部のリボンパネルを制御するクラス
+    /// CSV読込、グラフの表示・非表示、チェックボックスの連動を管理します
+    /// </summary>
     public partial class RibbonPanel : UserControl
     {
         public RibbonPanel()
@@ -14,120 +19,134 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
         }
 
         // ==========================================
-        // 1. CSV読込・プレビューロジック
+        // 1. CSV読込・プレビュー表示機能
         // ==========================================
 
         /// <summary>
-        /// CSV読込ボタン押下時：読込用ポップアップウィンドウを開く
+        /// [CSV読込]ボタンクリック：ファイル選択ウィンドウを起動
         /// </summary>
         private void CsvImportBtn_Click(object sender, RoutedEventArgs e)
         {
+            // カスタムウィンドウ（CsvImportWindow）のインスタンス生成
             var importWin = new CsvImportWindow();
-            // 親ウィンドウ（MainWindow）をセットして、その中央に表示されるようにする
+            // メインウィンドウの中央に表示されるよう設定
             importWin.Owner = Window.GetWindow(this);
 
-            // ウィンドウを「対話モード」で開き、OKボタン(DialogResult=true)で閉じられたか確認
+            // ウィンドウをモーダル表示（閉じるまで操作不可）し、OK(DialogResult=true)なら実行
             if (importWin.ShowDialog() == true)
             {
-                // ウィンドウから取得したファイルパスを使って解析を開始
+                // ウィンドウが保持しているファイルパスを解析メソッドへ渡す
                 LoadCsv(importWin.SelectedFilePath);
             }
         }
 
         /// <summary>
-        /// 指定されたパスのCSVファイルを読み込み、最大1000行をDataPreviewに渡す
+        /// CSVの解析、プレビュー生成、およびユーザーへの完了通知を行います
         /// </summary>
+        /// <param name="filePath">読み込むCSVのフルパス</param>
         private void LoadCsv(string filePath)
         {
             try
             {
-                DataTable dt = new DataTable();
+                DataTable dt = new DataTable(); // DataGrid表示用のデータ格納庫
+                int totalRows = 0;              // 全データの行数カウント用
 
-                // Microsoft.VisualBasic.FileIO.TextFieldParser はカンマ区切り内の
-                // ダブルクォーテーション等も適切に処理してくれるため採用
+                // --- 【解析フェーズ】 ---
+                // TextFieldParserを使用して、CSVの特殊ルール（カンマ入りデータ等）を考慮して読み込む
                 using (var parser = new Microsoft.VisualBasic.FileIO.TextFieldParser(filePath))
                 {
                     parser.TextFieldType = Microsoft.VisualBasic.FileIO.FieldType.Delimited;
-                    parser.SetDelimiters(","); // カンマ区切りを指定
+                    parser.SetDelimiters(","); // カンマ区切り
 
                     bool isFirstRow = true;
-                    int rowCount = 0;
 
-                    // ファイルの終端まで、または最大1000行に達するまでループ
-                    while (!parser.EndOfData && rowCount < 1000)
+                    // ファイルの終端まで1行ずつループ処理
+                    while (!parser.EndOfData)
                     {
-                        string[] fields = parser.ReadFields(); // 1行分のデータを配列で取得
+                        string[] fields = parser.ReadFields(); // 1行分の列データを配列で取得
+                        if (fields == null) continue;
 
                         if (isFirstRow)
                         {
-                            // 最初の1行目は「列名（ヘッダー）」としてDataTableの列を作成
+                            // 【列定義】1行目はヘッダーとしてDataTableの列名に設定
                             foreach (string field in fields) dt.Columns.Add(field);
                             isFirstRow = false;
                         }
                         else
                         {
-                            // 2行目以降は「データ」としてDataTableに行を追加
-                            dt.Rows.Add(fields);
-                            rowCount++;
+                            // 【データ取得】プレビュー用に最初の1000行だけDataTableに追加
+                            if (totalRows < 1000)
+                            {
+                                dt.Rows.Add(fields);
+                            }
+                            // プレビューの制限に関わらず、実際の総データ数はカウントし続ける
+                            totalRows++;
                         }
                     }
                 }
 
-                // 表示先の DataPreview コントロールを MainWindow から探し出す
+                // --- 【表示フェーズ】 ---
+                // メインウィンドウを経由して、DataPreviewコントロールへデータを届ける
                 var mainWindow = Window.GetWindow(this) as MainWindow;
                 if (mainWindow != null)
                 {
-                    // MainWindow.xaml で x:Name="MyPreview" と命名したインスタンスを取得
+                    // MainWindow.xamlで命名した「MyPreview」を探し出す
                     var previewControl = mainWindow.FindName("MyPreview") as DataPreview;
                     if (previewControl != null)
                     {
-                        // 取得したDataTableを渡して画面を更新
+                        // DataPreview内のDataGridにDataTableをバインド
                         previewControl.DisplayData(dt);
                     }
-                    else
-                    {
-                        // デバッグ用：もし名前が見つからない場合はエラーを出すようにしておくと原因がわかります
-                        MessageBox.Show("DataPreviewコントロール(MyPreview)が見つかりませんでした。MainWindow.xamlの設定を確認してください。");
-                    }
+
+                    // --- 【通知フェーズ】 ---
+                    // ファイル名のみを抽出し、総件数とともにメッセージボックスで通知
+                    string fileName = Path.GetFileName(filePath);
+                    MessageBox.Show(
+                        $"CSVファイルの読み込みが正常に完了しました。\n\n" +
+                        $"ファイル名: {fileName}\n" +
+                        $"総データ数: {totalRows:N0} 件", // :N0 は3桁カンマ区切りフォーマット
+                        "読み込み完了",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
                 }
             }
             catch (Exception ex)
             {
-                // ファイルが開けない、形式が違う等のエラー時にユーザーに通知
+                // ファイル占有中や不正なフォーマットなどのエラーをキャッチ
                 MessageBox.Show($"CSVの読み込み中にエラーが発生しました:\n{ex.Message}",
                                 "エラー", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
         // ==========================================
-        // 2. グラフ表示・非表示制御ロジック（既存）
+        // 2. グラフエリア表示・非表示制御（既存機能）
         // ==========================================
 
         /// <summary>
-        /// 右側グラフエリア全体の表示/非表示を一括で切り替える
+        /// [全グラフ非表示/表示]ボタンクリック：右側エリア全体の開閉
         /// </summary>
         private void ToggleGraphAreaBtn_Click(object sender, RoutedEventArgs e)
         {
             var mainWindow = Window.GetWindow(this) as MainWindow;
             if (mainWindow == null) return;
 
+            // 現在表示されているなら隠す
             if (mainWindow.GraphArea.Visibility == Visibility.Visible)
             {
-                // エリアを閉じ、ボタン名を「表示」に変更
                 mainWindow.GraphArea.Visibility = Visibility.Collapsed;
                 mainWindow.MySplitter.Visibility = Visibility.Collapsed;
-                mainWindow.GraphColumn.Width = new GridLength(0);
+                mainWindow.GraphColumn.Width = new GridLength(0); // 列幅をゼロにして隠す
                 ToggleGraphAreaBtn.Content = "グラフ表示";
             }
             else
             {
-                // エリアを開き、ボタン名を「非表示」に変更
+                // 隠れているなら表示する
                 mainWindow.GraphArea.Visibility = Visibility.Visible;
                 mainWindow.MySplitter.Visibility = Visibility.Visible;
                 mainWindow.GraphColumn.Width = new GridLength(1, GridUnitType.Star);
                 ToggleGraphAreaBtn.Content = "全グラフ非表示";
 
-                // 再表示時は、リボンのチェックボックスの「現在の状態」をグラフに反映させる
+                // 【状態復元】再表示時は、チェックボックスの今の状態をグラフ側に同期させる
                 if (mainWindow.MyGraphContent != null)
                 {
                     mainWindow.MyGraphContent.SetGraphVisibility(2, Chk2.IsChecked ?? false);
@@ -140,26 +159,26 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
         }
 
         /// <summary>
-        /// 個別のグラフ表示チェックボックスがクリックされた時の処理
+        /// 個別グラフのチェックボックスクリック：特定のグラフのみ表示・非表示
         /// </summary>
         private void CheckBox_Click(object sender, RoutedEventArgs e)
         {
             var chk = sender as CheckBox;
             if (chk == null || chk.Tag == null) return;
 
-            // XAMLのTagプロパティからグラフ番号(2〜6)を取得
+            // XAML側のTagに設定した番号(2〜6)を取得
             int graphNum = int.Parse(chk.Tag.ToString());
 
             var mainWindow = Window.GetWindow(this) as MainWindow;
             if (mainWindow != null && mainWindow.MyGraphContent != null)
             {
-                // チェック状態に合わせて個別のグラフ枠の表示を切り替え
+                // チェック状態(True/False)をGraphDisplayへ通知
                 mainWindow.MyGraphContent.SetGraphVisibility(graphNum, chk.IsChecked ?? true);
             }
         }
 
         /// <summary>
-        /// グラフ側の「×」ボタンで消された際に、リボンのチェックを外すための公開メソッド
+        /// グラフ側の「×」ボタン押下時に、リボン側のチェックを同期させるためのメソッド
         /// </summary>
         public void UpdateCheckBox(int graphNum, bool isChecked)
         {
