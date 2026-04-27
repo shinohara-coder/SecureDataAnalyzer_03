@@ -19,6 +19,7 @@
             </Grid.ColumnDefinitions>
 
             <comp:DataPreview Grid.Column="0"/>
+            <comp:DataPreview x:Name="MyPreview" Grid.Column="0"/>
 
             <GridSplitter x:Name="MySplitter" Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Stretch" Width="5" Background="#CCC"/>
 

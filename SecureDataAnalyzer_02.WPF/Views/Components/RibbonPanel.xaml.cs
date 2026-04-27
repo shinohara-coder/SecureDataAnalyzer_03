@@ -84,6 +84,11 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
                         // 取得したDataTableを渡して画面を更新
                         previewControl.DisplayData(dt);
                     }
+                    else
+                    {
+                        // デバッグ用：もし名前が見つからない場合はエラーを出すようにしておくと原因がわかります
+                        MessageBox.Show("DataPreviewコントロール(MyPreview)が見つかりませんでした。MainWindow.xamlの設定を確認してください。");
+                    }
                 }
             }
             catch (Exception ex)
