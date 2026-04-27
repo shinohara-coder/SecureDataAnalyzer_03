@@ -1,7 +1,12 @@
-﻿using System.Windows;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Shapes;
 using System.Windows.Input;
+using System.Data;
 
 namespace SecureDataAnalyzer_02.WPF.Views.Components
 {
@@ -12,7 +17,7 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
             InitializeComponent();
         }
 
-        public void AddNewGraph(string x, string y, string type)
+        public void AddNewGraph(string xCol, string yCol, string type)
         {
             if (GraphContainer.Children.Count >= 5)
             {
@@ -20,11 +25,61 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
                 return;
             }
 
-            // 【修正ポイント】Borderの初期化を正しい文法に修正
+            // 1. データ取得ロジックの強化
+            var mainWindow = Window.GetWindow(this) as MainWindow;
+            if (mainWindow?.MyPreview == null) return;
+
+            // ContentPresenter等を経由している場合があるため、名前で探す
+            DataGrid dataGrid = mainWindow.MyPreview.FindName("DataGrid") as DataGrid;
+
+            // それでも見つからない場合、ビジュアルツリーから探す予備手段（念のため）
+            if (dataGrid == null)
+            {
+                dataGrid = FindVisualChild<DataGrid>(mainWindow.MyPreview);
+            }
+
+            if (dataGrid == null || dataGrid.ItemsSource == null)
+            {
+                MessageBox.Show("グラフ化するデータが見つかりません。CSVを読み込んでください。", "データ未検出");
+                return;
+            }
+
+            // DataTableの取得をより柔軟に
+            DataTable dt = null;
+            if (dataGrid.ItemsSource is DataView dv) dt = dv.Table;
+            else if (dataGrid.ItemsSource is DataTable table) dt = table;
+
+            if (dt == null || dt.Rows.Count == 0)
+            {
+                MessageBox.Show("有効なデータテーブルが見つかりませんでした。", "エラー");
+                return;
+            }
+
+            // 2. データ集計（パターンB）
+            var summaryData = new Dictionary<string, double>();
+            try
+            {
+                foreach (DataRow row in dt.Rows)
+                {
+                    string key = row[xCol]?.ToString() ?? "不明";
+                    double val = 0;
+                    if (row[yCol] != DBNull.Value) double.TryParse(row[yCol].ToString(), out val);
+
+                    if (summaryData.ContainsKey(key)) summaryData[key] += val;
+                    else summaryData.Add(key, val);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"集計エラー: {ex.Message}");
+                return;
+            }
+
+            // 3. UI構築
             Border graphBorder = new Border
             {
                 Height = 200,
-                Background = new SolidColorBrush(Color.FromRgb(245, 245, 250)),
+                Background = new SolidColorBrush(Color.FromRgb(255, 255, 255)), // 安全な書き方に修正
                 BorderBrush = Brushes.LightGray,
                 BorderThickness = new Thickness(1),
                 Margin = new Thickness(10),
@@ -40,61 +95,76 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
                 Width = 25,
                 Height = 25,
                 Background = Brushes.Transparent,
-                BorderThickness = new Thickness(0)
+                BorderThickness = new Thickness(0),
+                Cursor = Cursors.Hand
             };
-            closeBtn.Click += (s, e) => RemoveGraph(graphBorder);
+            closeBtn.Click += (s, e) => GraphContainer.Children.Remove(graphBorder);
 
-            TextBlock infoText = new TextBlock
+            Canvas canvas = new Canvas { Margin = new Thickness(20, 40, 20, 30) };
+
+            if (summaryData.Any())
             {
-                Text = $"【最新グラフ】\n形式：{type}\nX軸：{x}\nY軸：{y}",
-                VerticalAlignment = VerticalAlignment.Center,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                TextAlignment = TextAlignment.Center,
-                FontWeight = FontWeights.Bold,
-                IsHitTestVisible = false // テキスト上でホイールしても邪魔しないように
-            };
+                double maxVal = summaryData.Values.Max();
+                if (maxVal <= 0) maxVal = 1;
+                double canvasHeight = 100; // 描画可能高さ
+                double barWidth = 25;
+                double xPos = 10;
 
-            innerGrid.Children.Add(infoText);
+                foreach (var item in summaryData.Take(8))
+                {
+                    double h = (item.Value / maxVal) * canvasHeight;
+                    Rectangle rect = new Rectangle { Width = barWidth, Height = h, Fill = Brushes.SteelBlue };
+                    Canvas.SetLeft(rect, xPos);
+                    Canvas.SetBottom(rect, 20);
+
+                    TextBlock txt = new TextBlock
+                    {
+                        Text = item.Key,
+                        FontSize = 9,
+                        Width = 45,
+                        TextAlignment = TextAlignment.Center,
+                        TextTrimming = TextTrimming.CharacterEllipsis
+                    };
+                    Canvas.SetLeft(txt, xPos - 10);
+                    Canvas.SetBottom(txt, 0);
+
+                    canvas.Children.Add(rect);
+                    canvas.Children.Add(txt);
+                    xPos += 50;
+                }
+            }
+
+            innerGrid.Children.Add(new TextBlock { Text = $"{type}: {xCol} / {yCol}", Margin = new Thickness(10, 5, 0, 0), FontWeight = FontWeights.Bold });
+            innerGrid.Children.Add(canvas);
             innerGrid.Children.Add(closeBtn);
             graphBorder.Child = innerGrid;
 
-            // リストの先頭に挿入
             GraphContainer.Children.Insert(0, graphBorder);
         }
 
-        private void RemoveGraph(Border target)
+        // ビジュアルツリーから子要素を探すヘルパー
+        private T FindVisualChild<T>(DependencyObject obj) where T : DependencyObject
         {
-            GraphContainer.Children.Remove(target);
-            if (GraphContainer.Children.Count == 0)
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(obj); i++)
             {
-                var mainWindow = Window.GetWindow(this) as MainWindow;
-                if (mainWindow != null)
-                {
-                    mainWindow.GraphArea.Visibility = Visibility.Collapsed;
-                    mainWindow.MySplitter.Visibility = Visibility.Collapsed;
-                    mainWindow.GraphColumn.Width = new GridLength(0);
-                }
+                DependencyObject child = VisualTreeHelper.GetChild(obj, i);
+                if (child != null && child is T t) return t;
+                T childItem = FindVisualChild<T>(child);
+                if (childItem != null) return childItem;
             }
-        }
-
-        /// <summary>
-        /// マウスホイールスクロールの強制制御
-        /// </summary>
-        private void ScrollViewer_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
-        {
-            ScrollViewer scv = sender as ScrollViewer;
-            if (scv == null) return;
-
-            // スクロール位置を計算（e.Deltaが負なら下へスクロール）
-            double nextOffset = scv.VerticalOffset - e.Delta;
-
-            if (nextOffset < 0) nextOffset = 0;
-            else if (nextOffset > scv.ScrollableHeight) nextOffset = scv.ScrollableHeight;
-
-            scv.ScrollToVerticalOffset(nextOffset);
-            e.Handled = true; // イベントをここで完了させる
+            return null;
         }
 
         public void SetGraphVisibility(int number, bool isVisible) { }
+
+        private void ScrollViewer_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            ScrollViewer scv = sender as ScrollViewer;
+            if (scv != null)
+            {
+                scv.ScrollToVerticalOffset(scv.VerticalOffset - e.Delta);
+                e.Handled = true;
+            }
+        }
     }
 }
