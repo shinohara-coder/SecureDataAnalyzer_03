@@ -12,10 +12,7 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
 {
     public partial class GraphDisplay : UserControl
     {
-        public GraphDisplay()
-        {
-            InitializeComponent();
-        }
+        public GraphDisplay() => InitializeComponent();
 
         public void AddNewGraph(string xCol, string yCol, string type)
         {
@@ -25,114 +22,47 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
                 return;
             }
 
-            // 1. データ取得ロジックの強化
+            // 1. データ取得
             var mainWindow = Window.GetWindow(this) as MainWindow;
-            if (mainWindow?.MyPreview == null) return;
+            DataGrid dataGrid = mainWindow?.MyPreview?.FindName("DataGrid") as DataGrid ?? FindVisualChild<DataGrid>(mainWindow?.MyPreview);
+            DataTable dt = (dataGrid?.ItemsSource as DataView)?.Table ?? dataGrid?.ItemsSource as DataTable;
 
-            // ContentPresenter等を経由している場合があるため、名前で探す
-            DataGrid dataGrid = mainWindow.MyPreview.FindName("DataGrid") as DataGrid;
-
-            // それでも見つからない場合、ビジュアルツリーから探す予備手段（念のため）
-            if (dataGrid == null)
+            if (dt == null)
             {
-                dataGrid = FindVisualChild<DataGrid>(mainWindow.MyPreview);
-            }
-
-            if (dataGrid == null || dataGrid.ItemsSource == null)
-            {
-                MessageBox.Show("グラフ化するデータが見つかりません。CSVを読み込んでください。", "データ未検出");
+                MessageBox.Show("データが見つかりません。");
                 return;
             }
 
-            // DataTableの取得をより柔軟に
-            DataTable dt = null;
-            if (dataGrid.ItemsSource is DataView dv) dt = dv.Table;
-            else if (dataGrid.ItemsSource is DataTable table) dt = table;
-
-            if (dt == null || dt.Rows.Count == 0)
-            {
-                MessageBox.Show("有効なデータテーブルが見つかりませんでした。", "エラー");
-                return;
-            }
-
-            // 2. データ集計（パターンB）
+            // 2. 集計 (パターンB: X軸でグループ化)
             var summaryData = new Dictionary<string, double>();
-            try
+            foreach (DataRow row in dt.Rows)
             {
-                foreach (DataRow row in dt.Rows)
-                {
-                    string key = row[xCol]?.ToString() ?? "不明";
-                    double val = 0;
-                    if (row[yCol] != DBNull.Value) double.TryParse(row[yCol].ToString(), out val);
-
-                    if (summaryData.ContainsKey(key)) summaryData[key] += val;
-                    else summaryData.Add(key, val);
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"集計エラー: {ex.Message}");
-                return;
+                string key = row[xCol]?.ToString() ?? "不明";
+                double val = 0;
+                if (row[yCol] != DBNull.Value) double.TryParse(row[yCol].ToString(), out val);
+                if (summaryData.ContainsKey(key)) summaryData[key] += val;
+                else summaryData.Add(key, val);
             }
 
             // 3. UI構築
             Border graphBorder = new Border
             {
-                Height = 200,
-                Background = new SolidColorBrush(Color.FromRgb(255, 255, 255)), // 安全な書き方に修正
+                Height = 220,
+                Background = Brushes.White,
                 BorderBrush = Brushes.LightGray,
                 BorderThickness = new Thickness(1),
                 Margin = new Thickness(10),
                 CornerRadius = new CornerRadius(5)
             };
-
             Grid innerGrid = new Grid();
-            Button closeBtn = new Button
-            {
-                Content = "×",
-                HorizontalAlignment = HorizontalAlignment.Right,
-                VerticalAlignment = VerticalAlignment.Top,
-                Width = 25,
-                Height = 25,
-                Background = Brushes.Transparent,
-                BorderThickness = new Thickness(0),
-                Cursor = Cursors.Hand
-            };
+            Canvas canvas = new Canvas { Margin = new Thickness(25, 45, 25, 30) };
+
+            // 削除ボタン
+            Button closeBtn = new Button { Content = "×", HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Width = 25, Height = 25, Background = Brushes.Transparent, BorderThickness = new Thickness(0) };
             closeBtn.Click += (s, e) => GraphContainer.Children.Remove(graphBorder);
 
-            Canvas canvas = new Canvas { Margin = new Thickness(20, 40, 20, 30) };
-
-            if (summaryData.Any())
-            {
-                double maxVal = summaryData.Values.Max();
-                if (maxVal <= 0) maxVal = 1;
-                double canvasHeight = 100; // 描画可能高さ
-                double barWidth = 25;
-                double xPos = 10;
-
-                foreach (var item in summaryData.Take(8))
-                {
-                    double h = (item.Value / maxVal) * canvasHeight;
-                    Rectangle rect = new Rectangle { Width = barWidth, Height = h, Fill = Brushes.SteelBlue };
-                    Canvas.SetLeft(rect, xPos);
-                    Canvas.SetBottom(rect, 20);
-
-                    TextBlock txt = new TextBlock
-                    {
-                        Text = item.Key,
-                        FontSize = 9,
-                        Width = 45,
-                        TextAlignment = TextAlignment.Center,
-                        TextTrimming = TextTrimming.CharacterEllipsis
-                    };
-                    Canvas.SetLeft(txt, xPos - 10);
-                    Canvas.SetBottom(txt, 0);
-
-                    canvas.Children.Add(rect);
-                    canvas.Children.Add(txt);
-                    xPos += 50;
-                }
-            }
+            // 4. グラフ種類による分岐描画
+            DrawGraph(canvas, summaryData, type);
 
             innerGrid.Children.Add(new TextBlock { Text = $"{type}: {xCol} / {yCol}", Margin = new Thickness(10, 5, 0, 0), FontWeight = FontWeights.Bold });
             innerGrid.Children.Add(canvas);
@@ -142,29 +72,84 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
             GraphContainer.Children.Insert(0, graphBorder);
         }
 
-        // ビジュアルツリーから子要素を探すヘルパー
-        private T FindVisualChild<T>(DependencyObject obj) where T : DependencyObject
+        private void DrawGraph(Canvas canvas, Dictionary<string, double> data, string type)
         {
-            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(obj); i++)
+            if (!data.Any()) return;
+            double maxVal = data.Values.Max();
+            if (maxVal <= 0) maxVal = 1;
+            var targetData = data.Take(8).ToList(); // 表示は最大8件に制限
+
+            if (type.Contains("棒")) // 棒グラフ
             {
-                DependencyObject child = VisualTreeHelper.GetChild(obj, i);
-                if (child != null && child is T t) return t;
-                T childItem = FindVisualChild<T>(child);
-                if (childItem != null) return childItem;
+                for (int i = 0; i < targetData.Count; i++)
+                {
+                    double h = (targetData[i].Value / maxVal) * 100;
+                    Rectangle rect = new Rectangle { Width = 20, Height = h, Fill = Brushes.SteelBlue };
+                    Canvas.SetLeft(rect, i * 40 + 10);
+                    Canvas.SetBottom(rect, 20);
+                    canvas.Children.Add(rect);
+                    AddLabel(canvas, targetData[i].Key, i * 40 + 10);
+                }
             }
-            return null;
+            else if (type.Contains("折れ線")) // 折れ線グラフ
+            {
+                Polyline line = new Polyline { Stroke = Brushes.Crimson, StrokeThickness = 2 };
+                for (int i = 0; i < targetData.Count; i++)
+                {
+                    double h = (targetData[i].Value / maxVal) * 100;
+                    Point p = new Point(i * 40 + 20, 100 - h);
+                    line.Points.Add(p);
+
+                    Ellipse dot = new Ellipse { Width = 6, Height = 6, Fill = Brushes.Crimson, Margin = new Thickness(-3) };
+                    Canvas.SetLeft(dot, p.X); Canvas.SetTop(dot, p.Y);
+                    canvas.Children.Add(dot);
+                    AddLabel(canvas, targetData[i].Key, i * 40 + 10);
+                }
+                canvas.Children.Add(line);
+            }
+            else if (type.Contains("円")) // 円グラフ
+            {
+                double total = data.Values.Sum();
+                double currentAngle = 0;
+                double centerX = 100, centerY = 50, radius = 45;
+                var colors = new Brush[] { Brushes.Gold, Brushes.LightCoral, Brushes.LightSkyBlue, Brushes.LightGreen, Brushes.MediumPurple, Brushes.Orange };
+
+                for (int i = 0; i < targetData.Count; i++)
+                {
+                    double sweepAngle = (targetData[i].Value / total) * 360;
+                    Path path = CreatePieSlice(centerX, centerY, radius, currentAngle, sweepAngle, colors[i % colors.Length]);
+                    canvas.Children.Add(path);
+                    currentAngle += sweepAngle;
+                }
+            }
         }
 
-        public void SetGraphVisibility(int number, bool isVisible) { }
-
-        private void ScrollViewer_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        private Path CreatePieSlice(double centerX, double centerY, double radius, double startAngle, double sweepAngle, Brush fill)
         {
-            ScrollViewer scv = sender as ScrollViewer;
-            if (scv != null)
-            {
-                scv.ScrollToVerticalOffset(scv.VerticalOffset - e.Delta);
-                e.Handled = true;
-            }
+            // 円弧を描画するための計算
+            double startRad = Math.PI * (startAngle - 90) / 180.0;
+            double endRad = Math.PI * (startAngle + sweepAngle - 90) / 180.0;
+
+            Point startPoint = new Point(centerX + radius * Math.Cos(startRad), centerY + radius * Math.Sin(startRad));
+            Point endPoint = new Point(centerX + radius * Math.Cos(endRad), centerY + radius * Math.Sin(endRad));
+
+            PathFigure figure = new PathFigure { StartPoint = new Point(centerX, centerY), IsClosed = true };
+            figure.Segments.Add(new LineSegment(startPoint, true));
+            figure.Segments.Add(new ArcSegment(endPoint, new Size(radius, radius), 0, sweepAngle > 180, SweepDirection.Clockwise, true));
+
+            return new Path { Fill = fill, Stroke = Brushes.White, StrokeThickness = 1, Data = new PathGeometry(new[] { figure }) };
         }
+
+        private void AddLabel(Canvas canvas, string text, double x)
+        {
+            TextBlock txt = new TextBlock { Text = text, FontSize = 9, Width = 40, TextAlignment = TextAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
+            Canvas.SetLeft(txt, x - 10); Canvas.SetBottom(txt, 0);
+            canvas.Children.Add(txt);
+        }
+
+        // --- 以前のヘルパーメソッド ---
+        private T FindVisualChild<T>(DependencyObject obj) where T : DependencyObject { /* 以前と同じ */ for (int i = 0; i < VisualTreeHelper.GetChildrenCount(obj); i++) { DependencyObject child = VisualTreeHelper.GetChild(obj, i); if (child is T t) return t; T childItem = FindVisualChild<T>(child); if (childItem != null) return childItem; } return null; }
+        public void SetGraphVisibility(int n, bool v) { }
+        private void ScrollViewer_PreviewMouseWheel(object s, MouseWheelEventArgs e) { var scv = s as ScrollViewer; if (scv != null) { scv.ScrollToVerticalOffset(scv.VerticalOffset - e.Delta); e.Handled = true; } }
     }
 }
