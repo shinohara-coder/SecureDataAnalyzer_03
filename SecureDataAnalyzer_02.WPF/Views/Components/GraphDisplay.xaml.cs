@@ -56,9 +56,9 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
             Grid innerGrid = new Grid();
             Canvas canvas = new Canvas
             {
-                Margin = new Thickness(30, 40, 30, 10),
+                Margin = new Thickness(0, 40, 0, 10), // 左右のマージンを 0 にして中央寄せを優先
                 Width = 320,
-                HorizontalAlignment = HorizontalAlignment.Left
+                HorizontalAlignment = HorizontalAlignment.Center // これで真ん中に表示されます
             };
 
             Button closeBtn = new Button
