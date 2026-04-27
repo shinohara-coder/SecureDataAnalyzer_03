@@ -4,6 +4,14 @@
              Height="80">
     <Border Background="#F3F3F3" BorderBrush="Gray" BorderThickness="0,0,0,1">
         <Grid>
+            <Button x:Name="CsvImportBtn" 
+                    Content="CSV読込" 
+                    HorizontalAlignment="Left" 
+                    VerticalAlignment="Top" 
+                    Width="100" Height="30" 
+                    Margin="10"
+                    Click="CsvImportBtn_Click"/>
+
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,20,0">
 
                 <Button x:Name="ToggleGraphAreaBtn" 

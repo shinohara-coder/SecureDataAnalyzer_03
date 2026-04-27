@@ -2,6 +2,15 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Grid Background="White">
-        <TextBlock Text="領域1: ここにCSVをドロップ" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="Gray"/>
+        <DataGrid x:Name="PreviewGrid" 
+                  AutoGenerateColumns="True" 
+                  IsReadOnly="True" 
+                  VerticalScrollBarVisibility="Auto" 
+                  HorizontalScrollBarVisibility="Auto"
+                  AlternatingRowBackground="#F9F9F9"/>
+
+        <TextBlock x:Name="EmptyMessage" Text="CSVプレビュー" 
+                   VerticalAlignment="Center" HorizontalAlignment="Center" 
+                   Foreground="Gray" Visibility="Visible"/>
     </Grid>
 </UserControl>
