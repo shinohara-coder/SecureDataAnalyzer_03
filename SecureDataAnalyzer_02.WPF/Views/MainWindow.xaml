@@ -9,7 +9,19 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <comp:RibbonPanel x:Name="MyRibbon" Grid.Row="0"/>
+        <Grid Grid.Row="0">
+            <comp:RibbonPanel x:Name="MyRibbon" Visibility="Visible"/>
+
+            <Button x:Name="ToggleRibbonBtn" 
+                    Content="▲" 
+                    HorizontalAlignment="Left" 
+                    VerticalAlignment="Bottom" 
+                    Width="30" Height="20" 
+                    Margin="5,0,0,0" 
+                    Click="ToggleRibbon_Click"
+                    Panel.ZIndex="1"
+                    Background="#DDD" FontSize="10"/>
+        </Grid>
 
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
@@ -18,7 +30,6 @@
                 <ColumnDefinition x:Name="GraphColumn" Width="1*"/>
             </Grid.ColumnDefinitions>
 
-            <comp:DataPreview Grid.Column="0"/>
             <comp:DataPreview x:Name="MyPreview" Grid.Column="0"/>
 
             <GridSplitter x:Name="MySplitter" Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Stretch" Width="5" Background="#CCC"/>
@@ -28,8 +39,6 @@
                     <comp:GraphDisplay x:Name="MyGraphContent" />
                 </ScrollViewer>
             </Grid>
-
-            <Button x:Name="ToggleRibbonBtn" Content="▲" VerticalAlignment="Top" HorizontalAlignment="Left" Width="30" Height="25" Margin="5,5,0,0" Click="ToggleRibbon_Click"/>
         </Grid>
     </Grid>
 </Window>

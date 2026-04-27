@@ -9,22 +9,26 @@ namespace SecureDataAnalyzer_02.WPF.Views
             InitializeComponent();
         }
 
-        // リボンパネルの表示/非表示を切り替える
+        /// <summary>
+        /// リボン格納ボタンクリック時の処理
+        /// </summary>
         private void ToggleRibbon_Click(object sender, RoutedEventArgs e)
         {
+            // リボンの表示状態を反転
             if (MyRibbon.Visibility == Visibility.Visible)
             {
                 MyRibbon.Visibility = Visibility.Collapsed;
                 ToggleRibbonBtn.Content = "▼";
+                // ボタンを上端に張り付かせる（リボンがない時の見た目調整）
+                ToggleRibbonBtn.VerticalAlignment = VerticalAlignment.Top;
             }
             else
             {
                 MyRibbon.Visibility = Visibility.Visible;
                 ToggleRibbonBtn.Content = "▲";
+                // ボタンをリボンの左下位置に戻す
+                ToggleRibbonBtn.VerticalAlignment = VerticalAlignment.Bottom;
             }
         }
-
-        // 【注意】以前ここにあった CloseGraph_Click と OpenGraph_Click は、
-        // リボン側のボタンに統合されたため、MainWindow.xaml から呼び出しがなければ削除可能です。
     }
 }
