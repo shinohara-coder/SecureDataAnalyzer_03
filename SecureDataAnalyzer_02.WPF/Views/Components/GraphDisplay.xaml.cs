@@ -14,9 +14,6 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
     {
         public GraphDisplay() => InitializeComponent();
 
-        /// <summary>
-        /// リボンパネルの「グラフ作成」ボタンから呼ばれるメインメソッド
-        /// </summary>
         public void AddNewGraph(string xCol, string yCol, string type)
         {
             if (GraphContainer.Children.Count >= 5)
@@ -25,19 +22,12 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
                 return;
             }
 
-            // 1. データ取得（ビジュアルツリーからDataGridを確実に探す）
             var mainWindow = Window.GetWindow(this) as MainWindow;
             var dataGrid = FindVisualChild<DataGrid>(mainWindow?.MyPreview);
-
             DataTable dt = (dataGrid?.ItemsSource as DataView)?.Table ?? dataGrid?.ItemsSource as DataTable;
 
-            if (dt == null || dt.Rows.Count == 0)
-            {
-                MessageBox.Show("グラフ化するデータが見つかりません。CSVを読み込んでください。");
-                return;
-            }
+            if (dt == null || dt.Rows.Count == 0) return;
 
-            // 2. データ集計（X軸でグループ化、Y軸を合計）
             var summaryData = new Dictionary<string, double>();
             try
             {
@@ -46,21 +36,16 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
                     string key = row[xCol]?.ToString() ?? "不明";
                     double val = 0;
                     if (row[yCol] != DBNull.Value) double.TryParse(row[yCol].ToString(), out val);
-
                     if (summaryData.ContainsKey(key)) summaryData[key] += val;
                     else summaryData.Add(key, val);
                 }
             }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"集計中にエラーが発生しました。数値列を選択しているか確認してください。\n詳細: {ex.Message}");
-                return;
-            }
+            catch { return; }
 
-            // 3. グラフ外枠の構築
+            // 各表示領域の高さを 200px に変更
             Border graphBorder = new Border
             {
-                Height = 220,
+                Height = 200,
                 Background = Brushes.White,
                 BorderBrush = Brushes.LightGray,
                 BorderThickness = new Thickness(1),
@@ -69,9 +54,13 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
             };
 
             Grid innerGrid = new Grid();
-            Canvas canvas = new Canvas { Margin = new Thickness(25, 45, 25, 35) };
+            Canvas canvas = new Canvas
+            {
+                Margin = new Thickness(30, 40, 30, 10),
+                Width = 320,
+                HorizontalAlignment = HorizontalAlignment.Left
+            };
 
-            // 削除ボタン
             Button closeBtn = new Button
             {
                 Content = "×",
@@ -85,16 +74,13 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
             };
             closeBtn.Click += (s, e) => GraphContainer.Children.Remove(graphBorder);
 
-            // 4. グラフ種類による描画分岐
             DrawGraphLogic(canvas, summaryData, type);
 
-            // ラベル・コンテナ追加
             innerGrid.Children.Add(new TextBlock { Text = $"{type}: {xCol} / {yCol}", Margin = new Thickness(10, 5, 0, 0), FontWeight = FontWeights.Bold });
             innerGrid.Children.Add(canvas);
             innerGrid.Children.Add(closeBtn);
             graphBorder.Child = innerGrid;
 
-            // 常に最新を一番上に表示
             GraphContainer.Children.Insert(0, graphBorder);
         }
 
@@ -102,69 +88,115 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
         {
             if (!data.Any()) return;
 
-            // 円グラフ用に「全データ」の総計を保持
+            if (type.Contains("円"))
+            {
+                DrawPieChart(canvas, data);
+            }
+            else
+            {
+                var targetData = data.OrderByDescending(d => d.Value).Take(10).ToList();
+                double maxVal = targetData.Max(d => d.Value);
+                if (maxVal <= 0) maxVal = 1;
+
+                double availableWidth = 300;
+                double stepX = availableWidth / Math.Max(targetData.Count, 1);
+                double graphHeight = 80;
+
+                for (int i = 0; i < targetData.Count; i++)
+                {
+                    double h = (targetData[i].Value / maxVal) * graphHeight;
+                    double xPos = i * stepX;
+
+                    if (type.Contains("棒"))
+                    {
+                        Rectangle rect = new Rectangle
+                        {
+                            Width = 14,
+                            Height = h,
+                            Fill = Brushes.SteelBlue,
+                            ToolTip = $"{targetData[i].Key}: {targetData[i].Value:#,0}"
+                        };
+                        Canvas.SetLeft(rect, xPos);
+                        Canvas.SetTop(rect, graphHeight - h);
+                        canvas.Children.Add(rect);
+                    }
+                    else if (type.Contains("折れ線"))
+                    {
+                        if (i > 0)
+                        {
+                            double prevH = (targetData[i - 1].Value / maxVal) * graphHeight;
+                            Line connector = new Line
+                            {
+                                X1 = (i - 1) * stepX + 7,
+                                Y1 = graphHeight - prevH,
+                                X2 = i * stepX + 7,
+                                Y2 = graphHeight - h,
+                                Stroke = Brushes.Crimson,
+                                StrokeThickness = 2
+                            };
+                            canvas.Children.Add(connector);
+                        }
+                        Ellipse dot = new Ellipse
+                        {
+                            Width = 8,
+                            Height = 8,
+                            Fill = Brushes.Crimson,
+                            Margin = new Thickness(-4),
+                            ToolTip = $"{targetData[i].Key}: {targetData[i].Value:#,0}"
+                        };
+                        Canvas.SetLeft(dot, xPos + 7); Canvas.SetTop(dot, graphHeight - h);
+                        canvas.Children.Add(dot);
+                    }
+
+                    AddSlantedLabel(canvas, targetData[i].Key, xPos, graphHeight + 5);
+                }
+            }
+        }
+
+        private void AddSlantedLabel(Canvas c, string txt, double x, double top)
+        {
+            TextBlock tb = new TextBlock
+            {
+                Text = txt,
+                FontSize = 9,
+                Width = 70,
+                TextTrimming = TextTrimming.CharacterEllipsis
+            };
+            tb.RenderTransformOrigin = new Point(0, 0);
+            tb.LayoutTransform = new RotateTransform(45);
+
+            Canvas.SetLeft(tb, x);
+            Canvas.SetTop(tb, top);
+            c.Children.Add(tb);
+        }
+
+        private void DrawPieChart(Canvas canvas, Dictionary<string, double> data)
+        {
             double totalAll = data.Values.Sum();
             if (totalAll <= 0) totalAll = 1;
-
-            // 上位8件を抽出（視認性のため）
             var targetData = data.OrderByDescending(d => d.Value).Take(8).ToList();
-            double maxVal = targetData.Any() ? targetData.Max(d => d.Value) : 1;
+            double currentAngle = 0;
+            double centerX = 150, centerY = 70, radius = 60;
+            Brush[] colors = { Brushes.DodgerBlue, Brushes.Tomato, Brushes.Orange, Brushes.MediumSeaGreen, Brushes.MediumSlateBlue, Brushes.Gold, Brushes.HotPink, Brushes.Orchid };
 
-            if (type.Contains("棒"))
+            for (int i = 0; i < targetData.Count; i++)
             {
-                for (int i = 0; i < targetData.Count; i++)
-                {
-                    double h = (targetData[i].Value / maxVal) * 100;
-                    Rectangle rect = new Rectangle { Width = 20, Height = h, Fill = Brushes.SteelBlue };
-                    Canvas.SetLeft(rect, i * 45 + 10); Canvas.SetBottom(rect, 20);
-                    canvas.Children.Add(rect);
-                    AddLabel(canvas, targetData[i].Key, i * 45 + 10);
-                }
+                double sweepAngle = (targetData[i].Value / totalAll) * 360;
+                if (sweepAngle <= 0) continue;
+                if (sweepAngle >= 360) sweepAngle = 359.9;
+                Path slice = CreatePieSlice(centerX, centerY, radius, currentAngle, sweepAngle, colors[i % colors.Length]);
+                slice.ToolTip = $"{targetData[i].Key}: {targetData[i].Value:#,0} ({(targetData[i].Value / totalAll):P1})";
+                canvas.Children.Add(slice);
+                currentAngle += sweepAngle;
             }
-            else if (type.Contains("折れ線"))
+
+            double othersSum = totalAll - targetData.Sum(d => d.Value);
+            if (othersSum > 0.1)
             {
-                Polyline poly = new Polyline { Stroke = Brushes.Crimson, StrokeThickness = 2 };
-                for (int i = 0; i < targetData.Count; i++)
-                {
-                    double h = (targetData[i].Value / maxVal) * 100;
-                    Point p = new Point(i * 45 + 20, 100 - h);
-                    poly.Points.Add(p);
-                    Ellipse dot = new Ellipse { Width = 6, Height = 6, Fill = Brushes.Crimson, Margin = new Thickness(-3) };
-                    Canvas.SetLeft(dot, p.X); Canvas.SetTop(dot, p.Y);
-                    canvas.Children.Add(dot);
-                    AddLabel(canvas, targetData[i].Key, i * 45 + 10);
-                }
-                canvas.Children.Add(poly);
-            }
-            else if (type.Contains("円"))
-            {
-                double currentAngle = 0;
-                double centerX = 80, centerY = 60, radius = 55;
-                Brush[] colors = { Brushes.DodgerBlue, Brushes.Tomato, Brushes.Orange, Brushes.MediumSeaGreen, Brushes.MediumSlateBlue, Brushes.Gold, Brushes.HotPink, Brushes.Orchid };
-
-                for (int i = 0; i < targetData.Count; i++)
-                {
-                    double sweepAngle = (targetData[i].Value / totalAll) * 360;
-                    if (sweepAngle <= 0) continue;
-                    if (sweepAngle >= 360) sweepAngle = 359.99;
-
-                    Path slice = CreatePieSlice(centerX, centerY, radius, currentAngle, sweepAngle, colors[i % colors.Length]);
-                    slice.ToolTip = $"{targetData[i].Key}: {targetData[i].Value:#,0} ({(targetData[i].Value / totalAll):P1})";
-                    canvas.Children.Add(slice);
-                    currentAngle += sweepAngle;
-                }
-
-                // 「その他」の描画（全体から上位8件を引いた残り）
-                double othersSum = totalAll - targetData.Sum(d => d.Value);
-                if (othersSum > 0.1) // 誤差考慮
-                {
-                    double othersAngle = (othersSum / totalAll) * 360;
-                    if (currentAngle + othersAngle > 360) othersAngle = 360 - currentAngle;
-
-                    Path othersSlice = CreatePieSlice(centerX, centerY, radius, currentAngle, othersAngle, Brushes.LightGray);
-                    othersSlice.ToolTip = $"その他: {othersSum:#,0} ({(othersSum / totalAll):P1})";
-                    canvas.Children.Add(othersSlice);
-                }
+                double othersAngle = 360 - currentAngle;
+                Path othersSlice = CreatePieSlice(centerX, centerY, radius, currentAngle, othersAngle, Brushes.LightGray);
+                othersSlice.ToolTip = $"その他: {othersSum:#,0} ({(othersSum / totalAll):P1})";
+                canvas.Children.Add(othersSlice);
             }
         }
 
@@ -174,25 +206,14 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
             double eRad = Math.PI * (start + sweep - 90) / 180.0;
             Point pStart = new Point(cx + r * Math.Cos(sRad), cy + r * Math.Sin(sRad));
             Point pEnd = new Point(cx + r * Math.Cos(eRad), cy + r * Math.Sin(eRad));
-
             var figure = new PathFigure { StartPoint = new Point(cx, cy), IsClosed = true };
             figure.Segments.Add(new LineSegment(pStart, true));
             figure.Segments.Add(new ArcSegment(pEnd, new Size(r, r), 0, sweep > 180, SweepDirection.Clockwise, true));
-
             return new Path { Fill = fill, Stroke = Brushes.White, StrokeThickness = 1, Data = new PathGeometry(new[] { figure }) };
         }
 
-        private void AddLabel(Canvas c, string txt, double x)
-        {
-            TextBlock tb = new TextBlock { Text = txt, FontSize = 9, Width = 40, TextAlignment = TextAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
-            Canvas.SetLeft(tb, x - 10); Canvas.SetBottom(tb, 0);
-            c.Children.Add(tb);
-        }
+        public void SetGraphVisibility(int n, bool v) { }
 
-        // ビルドエラー回避用の空メソッド
-        public void SetGraphVisibility(int number, bool isVisible) { }
-
-        // ビジュアルツリー探索用ヘルパー（DataGrid特定用）
         private T FindVisualChild<T>(DependencyObject obj) where T : DependencyObject
         {
             if (obj == null) return null;
@@ -206,15 +227,10 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
             return null;
         }
 
-        // マウスホイールでのスクロール制御
         private void ScrollViewer_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
         {
             var scv = sender as ScrollViewer;
-            if (scv != null)
-            {
-                scv.ScrollToVerticalOffset(scv.VerticalOffset - e.Delta);
-                e.Handled = true;
-            }
+            if (scv != null) { scv.ScrollToVerticalOffset(scv.VerticalOffset - e.Delta); e.Handled = true; }
         }
     }
 }
