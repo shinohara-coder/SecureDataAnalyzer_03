@@ -65,7 +65,7 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
                 {
                     var previewControl = mainWindow.FindName("MyPreview") as DataPreview;
                     if (previewControl != null) previewControl.DisplayData(dt);
-                    MessageBox.Show($"読込完了: {Path.GetFileName(filePath)} ({totalRows:N0}件)");
+                    MessageBox.Show($"読込完了: {Path.GetFileName(filePath)} ({totalRows:N0}件)", "完了", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
             }
             catch (Exception ex) { MessageBox.Show($"エラー: {ex.Message}"); }
