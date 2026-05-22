@@ -48,12 +48,12 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
             {
                 foreach (DataRow row in dt.Rows)
                 {
-                    string key = row[xCol]?.ToString() ?? "不明";
+                    string key = row[xCol]?.ToString() ?? "不明";     //X軸を取り出す
                     double val = 0;
-                    if (row[yCol] != DBNull.Value) double.TryParse(row[yCol].ToString(), out val);
+                    if (row[yCol] != DBNull.Value) double.TryParse(row[yCol].ToString(), out val);  //Y軸を取り出す
 
-                    if (summaryData.ContainsKey(key)) summaryData[key] += val;
-                    else summaryData.Add(key, val);
+                    if (summaryData.ContainsKey(key)) summaryData[key] += val;      //key毎に値を合計する
+                    else summaryData.Add(key, val);                                 //初めて出てきた項目なら、新しいkey、valのペアを作る
                 }
             }
             catch { return; }
@@ -92,16 +92,18 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
                 Cursor = Cursors.Hand
             };
             // 削除ボタンクリック時に自身のBorderをコンテナから削除
+            // s (object sender):/ e (RoutedEventArgs e):
+            // closeBtn.Clickにイベントハンドラを登録
             closeBtn.Click += (s, e) => GraphContainer.Children.Remove(graphBorder);
 
             // グラフ描画実行
             DrawGraphLogic(canvas, summaryData, type);
 
             // カード内レイアウトの組み立て（タイトル、描画エリア、ボタン）
-            innerGrid.Children.Add(new TextBlock { Text = $"{type}: {xCol} / {yCol}", Margin = new Thickness(10, 5, 0, 0), FontWeight = FontWeights.Bold });
-            innerGrid.Children.Add(canvas);
-            innerGrid.Children.Add(closeBtn);
-            graphBorder.Child = innerGrid;
+            innerGrid.Children.Add(new TextBlock { Text = $"{type}: {xCol} / {yCol}", Margin = new Thickness(10, 5, 0, 0), FontWeight = FontWeights.Bold });    // 1.タイトルを載せる
+            innerGrid.Children.Add(canvas);                             // 2.グラフを載せる
+            innerGrid.Children.Add(closeBtn);                           // 3.ボタンを載せる
+            graphBorder.Child = innerGrid;                              // まとめて枠(graphBorder)の中へ！
 
             // StackPanelの先頭（一番上）に追加
             GraphContainer.Children.Insert(0, graphBorder);
@@ -122,11 +124,11 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
             {
                 // 棒グラフ・折れ線グラフ：上位10件を表示対象とする
                 var targetData = data.OrderByDescending(d => d.Value).Take(10).ToList();
-                double maxVal = targetData.Max(d => d.Value);
+                double maxVal = targetData.Max(d => d.Value);   //グラフの高さを算出するために必要
                 if (maxVal <= 0) maxVal = 1;
 
                 double availableWidth = 300; // 有効描画幅
-                double stepX = availableWidth / Math.Max(targetData.Count, 1); // 項目間のピッチ
+                double stepX = availableWidth / Math.Max(targetData.Count, 1); // 項目間のピッチ(Math.Maxメソッドを使って0で除算しないようにする)
                 double graphHeight = 80; // グラフ自体の基本高さ
 
                 for (int i = 0; i < targetData.Count; i++)
