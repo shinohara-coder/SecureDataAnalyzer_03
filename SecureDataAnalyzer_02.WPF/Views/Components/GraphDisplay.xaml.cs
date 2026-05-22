@@ -15,7 +15,10 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
     /// </summary>
     public partial class GraphDisplay : UserControl
     {
-        public GraphDisplay() => InitializeComponent();
+        public GraphDisplay()
+        {
+            InitializeComponent();
+        }
 
         /// <summary>
         /// 新しいグラフカードを生成して画面に追加する
