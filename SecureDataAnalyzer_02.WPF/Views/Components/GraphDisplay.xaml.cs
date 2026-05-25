@@ -217,7 +217,18 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
             var targetData = data.OrderByDescending(d => d.Value).Take(10).ToList();
             double currentAngle = 0;
             double centerX = 150, centerY = 70, radius = 60;
-            Brush[] colors = { Brushes.DodgerBlue, Brushes.Tomato, Brushes.Orange, Brushes.MediumSeaGreen, Brushes.MediumSlateBlue, Brushes.Gold, Brushes.HotPink, Brushes.Orchid };
+            Brush[] colors = {
+                Brushes.DodgerBlue,     // 青
+                Brushes.Tomato,         // 赤橙
+                Brushes.MediumSeaGreen, // 緑
+                Brushes.Gold,           // 黄
+                Brushes.MediumSlateBlue,// 青紫
+                Brushes.Crimson,        // 深赤 ★追加
+                Brushes.DeepSkyBlue,    // 水色 ★追加
+                Brushes.Orange,         // オレンジ
+                Brushes.Orchid,         // 薄紫
+                Brushes.HotPink         // ピンク
+            };
 
             for (int i = 0; i < targetData.Count; i++)
             {
