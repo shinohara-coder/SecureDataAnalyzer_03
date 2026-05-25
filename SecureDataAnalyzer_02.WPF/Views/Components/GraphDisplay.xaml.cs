@@ -234,7 +234,7 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
             {
                 double sweepAngle = (targetData[i].Value / totalAll) * 360; // 扇形の角度算出
                 if (sweepAngle <= 0) continue;
-                if (sweepAngle >= 360) sweepAngle = 359.9; // 360度ちょうどの描画エラー回避
+                if (sweepAngle >= 360) sweepAngle = 359.9; // 「開始点と終了点が全く同じ（360度）だと、描画をサボって何も表示されなくなる」という挙動回避
 
                 Path slice = CreatePieSlice(centerX, centerY, radius, currentAngle, sweepAngle, colors[i % colors.Length]);
                 slice.ToolTip = $"{targetData[i].Key}: {targetData[i].Value:#,0} ({(targetData[i].Value / totalAll):P1})";
@@ -264,11 +264,18 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
             Point pStart = new Point(cx + r * Math.Cos(sRad), cy + r * Math.Sin(sRad));
             Point pEnd = new Point(cx + r * Math.Cos(eRad), cy + r * Math.Sin(eRad));
 
-            var figure = new PathFigure { StartPoint = new Point(cx, cy), IsClosed = true };
-            figure.Segments.Add(new LineSegment(pStart, true));
-            figure.Segments.Add(new ArcSegment(pEnd, new Size(r, r), 0, sweep > 180, SweepDirection.Clockwise, true));
+            // 扇形の描画
+            var figure = new PathFigure { StartPoint = new Point(cx, cy), IsClosed = true };                            //ペン先を円の中心に置く。最後に円の中心に戻って図形を閉じる
+            figure.Segments.Add(new LineSegment(pStart, true));                                                         //中心からpStartに線を引く    
+            figure.Segments.Add(new ArcSegment(pEnd, new Size(r, r), 0, sweep > 180, SweepDirection.Clockwise, true));  //pStart から pEnd まで、半径 r のカーブ（円弧）を描く
 
-            return new Path { Fill = fill, Stroke = Brushes.White, StrokeThickness = 1, Data = new PathGeometry(new[] { figure }) };
+            return new Path
+            {
+                Fill = fill,                // 扇形の中の色
+                Stroke = Brushes.White,     // 境界線（白にすることで、ピースの境目が見やすくなる）
+                StrokeThickness = 1,
+                Data = new PathGeometry(new[] { figure })
+            };
         }
 
         // RibbonPanelのチェックボックス連動用（現状は空実装）
@@ -283,7 +290,7 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
             for (int i = 0; i < VisualTreeHelper.GetChildrenCount(obj); i++)
             {
                 var child = VisualTreeHelper.GetChild(obj, i);
-                if (child is T t) return t;
+                if (child is T t) return t;                 //is演算子(拡張構文) 独習P398
                 var res = FindVisualChild<T>(child);
                 if (res != null) return res;
             }
@@ -296,7 +303,11 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
         private void ScrollViewer_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
         {
             var scv = sender as ScrollViewer;
-            if (scv != null) { scv.ScrollToVerticalOffset(scv.VerticalOffset - e.Delta); e.Handled = true; }
+            if (scv != null)
+            { 
+                scv.ScrollToVerticalOffset(scv.VerticalOffset - e.Delta);   // scv.VerticalOffset:現在のスクロール位置(一番上が0)  e.Delta:マウスホイールの回転量
+                e.Handled = true;   //イベントの停止
+            }
         }
     }
 }
