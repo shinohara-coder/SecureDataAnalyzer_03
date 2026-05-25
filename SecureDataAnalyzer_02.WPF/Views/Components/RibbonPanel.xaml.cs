@@ -26,7 +26,7 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
         private void CsvImportBtn_Click(object sender, RoutedEventArgs e)
         {
             var importWin = new CsvImportWindow();
-            importWin.Owner = Window.GetWindow(this); // 親ウィンドウの中央に出す設定
+            importWin.Owner = Window.GetWindow(this); // 親ウィンドウの中央に出す設定(thisをツリー構造を遡りMainWindowオブジェクトを返す)
             if (importWin.ShowDialog() == true)
             {
                 LoadCsv(importWin.SelectedFilePath);
@@ -60,7 +60,7 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
                             foreach (string field in fields)
                             {
                                 dt.Columns.Add(field);
-                                _csvColumns.Add(field);
+                                _csvColumns.Add(field); // 読込済みのCSV列名を保持するリスト（グラフ設定用）
                             }
                             isFirstRow = false;
                         }
