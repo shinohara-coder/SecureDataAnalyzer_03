@@ -214,7 +214,7 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
             if (totalAll <= 0) totalAll = 1;
 
             // 上位8件のみを個別表示し、残りは「その他」として集約
-            var targetData = data.OrderByDescending(d => d.Value).Take(8).ToList();
+            var targetData = data.OrderByDescending(d => d.Value).Take(10).ToList();
             double currentAngle = 0;
             double centerX = 150, centerY = 70, radius = 60;
             Brush[] colors = { Brushes.DodgerBlue, Brushes.Tomato, Brushes.Orange, Brushes.MediumSeaGreen, Brushes.MediumSlateBlue, Brushes.Gold, Brushes.HotPink, Brushes.Orchid };
