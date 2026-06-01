@@ -201,10 +201,20 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
         {
             if (SuggestList.SelectedItem is CustomerSearchResult selected)
             {
-                var code = selected.Code;   // クロージャで保持
+                var code = selected.Code;
+
                 CloseSuggestPopup();
 
-                // UI スレッドをブロックしない非同期呼び出し
+                // 検索窓に選択した企業名を表示し続ける
+                // TextChanged によるデバウンス再検索を起こさないよう一時的にイベントを切り離す
+                SearchBox.TextChanged -= SearchBox_TextChanged;
+                SearchBox.Text = selected.Name1;
+                SearchPlaceholder.Visibility = Visibility.Collapsed;
+                SearchBox.TextChanged += SearchBox_TextChanged;
+
+                // キャレットを末尾に移動（見た目を整える）
+                SearchBox.CaretIndex = SearchBox.Text.Length;
+
                 Task.Run(() => LoadAndShowDetailAsync(code));
             }
         }
