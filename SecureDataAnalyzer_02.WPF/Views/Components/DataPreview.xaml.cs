@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Data;
 using System.Linq;
 using System.Threading;
@@ -12,8 +13,40 @@ using SecureDataAnalyzer_02.WPF.Services;
 
 namespace SecureDataAnalyzer_02.WPF.Views.Components
 {
+    // ══════════════════════════════════════════════════════════════
+    // ページング用センチネルアイテム
+    // ══════════════════════════════════════════════════════════════
+
+    /// <summary>候補リストの末尾に置く「次の N 件を表示」ボタン用モデル</summary>
+    public class LoadMoreItem
+    {
+        public int RemainingCount { get; set; }
+        public string Label => RemainingCount > 0
+            ? $"▼  次の50件を表示  （残り {RemainingCount:N0} 件）"
+            : "▼  次の50件を表示";
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // DataTemplate セレクター
+    // ══════════════════════════════════════════════════════════════
+
+    /// <summary>通常の候補行と「次の N 件を表示」ボタン行を切り替えるセレクター</summary>
+    public class SuggestItemTemplateSelector : DataTemplateSelector
+    {
+        public DataTemplate? CustomerTemplate { get; set; }
+        public DataTemplate? LoadMoreTemplate { get; set; }
+
+        public override DataTemplate? SelectTemplate(object item, DependencyObject container)
+            => item is LoadMoreItem ? LoadMoreTemplate : CustomerTemplate;
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // DataPreview UserControl
+    // ══════════════════════════════════════════════════════════════
+
     /// <summary>
-    /// CSV データのプレビューと得意先インクリメンタルサーチ・詳細レコード表示を統括するコントロール
+    /// CSV データのプレビュー、得意先インクリメンタルサーチ、詳細レコード表示、
+    /// 全件表示のページネーション機能を統括するコントロール
     /// </summary>
     public partial class DataPreview : UserControl
     {
@@ -26,8 +59,21 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
         /// <summary>デバウンス用キャンセルトークン</summary>
         private CancellationTokenSource? _searchCts;
 
-        /// <summary>デバウンス遅延（ms）：要件は 300ms 以内</summary>
+        /// <summary>デバウンス遅延（ms）</summary>
         private const int DebounceMs = 250;
+
+        // ── ページネーション状態 ──
+        /// <summary>候補リストのデータソース（検索結果・全件表示両用）</summary>
+        private readonly ObservableCollection<object> _suggestItems = new();
+
+        /// <summary>全件表示モードで次にロードする開始位置</summary>
+        private int _allDisplayOffset = 0;
+
+        /// <summary>現在全件表示モードかどうか（将来の検索 vs 全件切り替え判定用）</summary>
+        private bool _isShowingAll;
+
+        private const int InitialPageSize = 15;
+        private const int LoadMorePageSize = 50;
 
         // ─────────────────────────────────────────────────
         // 初期化
@@ -37,6 +83,9 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
         {
             InitializeComponent();
             _db.Initialize();
+
+            // ListBox のデータソースを固定（以後 _suggestItems を操作するだけ）
+            SuggestList.ItemsSource = _suggestItems;
         }
 
         // ─────────────────────────────────────────────────
@@ -75,7 +124,8 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
             SearchPlaceholder.Visibility = string.IsNullOrEmpty(SearchBox.Text)
                 ? Visibility.Visible : Visibility.Collapsed;
 
-            // デバウンス：前のリクエストをキャンセルして再発行
+            _isShowingAll = false;  // 文字入力したら全件表示モード解除
+
             _searchCts?.Cancel();
             _searchCts = new CancellationTokenSource();
             var token = _searchCts.Token;
@@ -109,13 +159,27 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
             }
         }
 
-        /// <summary>「全件表示」ボタン：DB から先頭 15 件を取得して候補を表示する</summary>
+        // ─────────────────────────────────────────────────
+        // 全件表示 ボタン
+        // ─────────────────────────────────────────────────
+
+        /// <summary>
+        /// 「全件表示」ボタン：最初の 15 件を表示し、残りがあれば
+        /// 末尾に「次の50件を表示」ボタンを追加する。
+        /// </summary>
         private async void ShowAllBtn_Click(object sender, RoutedEventArgs e)
         {
+            // 検索ボックスをリセット（再検索デバウンスが走らないようイベントを外す）
+            SearchBox.TextChanged -= SearchBox_TextChanged;
             SearchBox.Text = "";
             SearchPlaceholder.Visibility = Visibility.Visible;
-            var results = await _db.GetAllAsync(15);
-            UpdateSuggestList(results);
+            SearchBox.TextChanged += SearchBox_TextChanged;
+
+            _isShowingAll = true;
+            _allDisplayOffset = 0;
+            _suggestItems.Clear();
+
+            await AppendNextPageAsync(InitialPageSize);
         }
 
         // ─────────────────────────────────────────────────
@@ -123,21 +187,27 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
         // ─────────────────────────────────────────────────
 
         /// <summary>
-        /// アイテム上のシングルクリックで確定する。
-        /// PreviewMouseLeftButtonDown は Popup 内でも確実に発火する。
+        /// シングルクリックで確定 or「次の50件を表示」ボタン押下を処理する。
         /// </summary>
         private void SuggestList_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            // クリック位置に対応する ListBoxItem を特定する
-            var item = ItemsControl.ContainerFromElement(
+            var container = ItemsControl.ContainerFromElement(
                 SuggestList,
                 e.OriginalSource as DependencyObject) as ListBoxItem;
 
-            if (item?.DataContext is CustomerSearchResult result)
+            if (container == null) return;
+
+            if (container.DataContext is CustomerSearchResult result)
             {
                 SuggestList.SelectedItem = result;
                 ConfirmSelection();
-                e.Handled = true;   // 二重発火を防ぐ
+                e.Handled = true;
+            }
+            else if (container.DataContext is LoadMoreItem)
+            {
+                // 「次の50件を表示」ボタンをクリック
+                Task.Run(() => Dispatcher.Invoke(() => _ = AppendNextPageAsync(LoadMorePageSize)));
+                e.Handled = true;
             }
         }
 
@@ -146,7 +216,10 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
             switch (e.Key)
             {
                 case Key.Enter:
-                    ConfirmSelection();
+                    if (SuggestList.SelectedItem is LoadMoreItem)
+                        Task.Run(() => Dispatcher.Invoke(() => _ = AppendNextPageAsync(LoadMorePageSize)));
+                    else
+                        ConfirmSelection();
                     e.Handled = true;
                     break;
 
@@ -169,7 +242,7 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
         }
 
         // ─────────────────────────────────────────────────
-        // 内部ロジック
+        // 内部ロジック：検索
         // ─────────────────────────────────────────────────
 
         private async Task ExecuteSearchAsync(string query, CancellationToken token)
@@ -183,19 +256,65 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
 
             if (token.IsCancellationRequested) return;
 
-            Dispatcher.Invoke(() => UpdateSuggestList(results));
+            Dispatcher.Invoke(() =>
+            {
+                _suggestItems.Clear();
+                foreach (var r in results) _suggestItems.Add(r);
+                SuggestPopup.IsOpen = _suggestItems.Count > 0;
+            });
         }
 
         private void UpdateSuggestList(IEnumerable<CustomerSearchResult> results)
         {
-            SuggestList.ItemsSource = results;
-            SuggestPopup.IsOpen = SuggestList.Items.Count > 0;
+            _suggestItems.Clear();
+            foreach (var r in results) _suggestItems.Add(r);
+            SuggestPopup.IsOpen = _suggestItems.Count > 0;
         }
 
         private void CloseSuggestPopup()
         {
             SuggestPopup.IsOpen = false;
         }
+
+        // ─────────────────────────────────────────────────
+        // 内部ロジック：ページネーション
+        // ─────────────────────────────────────────────────
+
+        /// <summary>
+        /// 次のページを <paramref name="pageSize"/> 件分取得してリストへ追加する。
+        /// 既存の LoadMoreItem センチネルは差し替える。
+        /// </summary>
+        private async Task AppendNextPageAsync(int pageSize)
+        {
+            var (items, total) = await _db.GetPagedAsync(_allDisplayOffset, pageSize);
+            var list = items.ToList();
+
+            // 既存の LoadMoreItem を削除
+            var existing = _suggestItems.OfType<LoadMoreItem>().FirstOrDefault();
+            if (existing != null) _suggestItems.Remove(existing);
+
+            foreach (var item in list)
+                _suggestItems.Add(item);
+
+            _allDisplayOffset += list.Count;
+
+            // 残りがあれば末尾にセンチネルを追加
+            int remaining = total - _allDisplayOffset;
+            if (remaining > 0)
+                _suggestItems.Add(new LoadMoreItem { RemainingCount = remaining });
+
+            SuggestPopup.IsOpen = _suggestItems.Count > 0;
+
+            // 新しく追加されたアイテムの先頭が見えるようスクロール
+            if (list.Count > 0)
+            {
+                SuggestList.ScrollIntoView(list[0]);
+            }
+        }
+
+        // ─────────────────────────────────────────────────
+        // 内部ロジック：確定・詳細表示
+        // ─────────────────────────────────────────────────
 
         private void ConfirmSelection()
         {
@@ -206,22 +325,15 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
                 CloseSuggestPopup();
 
                 // 検索窓に選択した企業名を表示し続ける
-                // TextChanged によるデバウンス再検索を起こさないよう一時的にイベントを切り離す
                 SearchBox.TextChanged -= SearchBox_TextChanged;
                 SearchBox.Text = selected.Name1;
                 SearchPlaceholder.Visibility = Visibility.Collapsed;
                 SearchBox.TextChanged += SearchBox_TextChanged;
-
-                // キャレットを末尾に移動（見た目を整える）
                 SearchBox.CaretIndex = SearchBox.Text.Length;
 
                 Task.Run(() => LoadAndShowDetailAsync(code));
             }
         }
-
-        // ─────────────────────────────────────────────────
-        // 詳細レコード表示
-        // ─────────────────────────────────────────────────
 
         private async Task LoadAndShowDetailAsync(string code)
         {
@@ -245,21 +357,19 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
             }
         }
 
-        /// <summary>
-        /// 取得した TokisakiMaster の全フィールドを詳細パネルの各 TextBlock に反映する。
-        /// </summary>
+        // ─────────────────────────────────────────────────
+        // 詳細レコード表示
+        // ─────────────────────────────────────────────────
+
         private void BindDetailFields(TokisakiMaster c)
         {
-            // ── ヘッダー ──
             DetailCode.Text  = c.得意先コード;
             DetailName1.Text = c.得意先名１;
 
-            // ── 基本情報 ──
             DetailRyakusho.Text = c.得意先略称;
             DetailKana.Text     = c.取引先名ひらがな;
             DetailName2.Text    = c.得意先名２;
 
-            // ── 住所・連絡先 ──
             DetailPostal.Text  = FormatPostal(c.郵便番号);
             DetailTel.Text     = c.電話番号;
             DetailFax.Text     = c.FAX番号;
@@ -267,13 +377,11 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
             DetailAddr2.Text   = c.住所２;
             DetailAddr3.Text   = c.住所３;
 
-            // ── 管理情報 ──
             DetailNohinsakiCode.Text  = c.納品先コード;
             DetailTantoshaCode.Text   = c.担当者コード;
             DetailSinyoLimit.Text     = string.IsNullOrWhiteSpace(c.与信限度額) ? "―" : c.与信限度額;
             DetailWeightDisplay.Text  = c.重量表示;
 
-            // ── 単価・金額処理区分 ──
             DetailTankaKubun1.Text = c.単価処理区分;
             DetailTankaUnit1.Text  = c.単価処理単位;
             DetailTankaKubun2.Text = c.単価処理区分_1kg未満;
@@ -282,12 +390,10 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
             DetailTankaKubun3.Text = c.単価処理区分_切板以外;
             DetailTankaUnit3.Text  = c.単価処理単位_切板以外;
 
-            // ── 消費税処理 ──
             DetailShouhizeiKubun.Text   = c.消費税計算処理区分;
             DetailShouhizeiUnit.Text    = c.消費税計算処理単位;
             DetailShouhizeiBunkai.Text  = c.消費税分解処理区分;
 
-            // ── パスワード管理 ──
             DetailPwDate.Text = string.IsNullOrWhiteSpace(c.新パスワード適用年月日) ? "―" : c.新パスワード適用年月日;
             DetailPwTime.Text = string.IsNullOrWhiteSpace(c.新パスワード適用時刻)   ? "―" : c.新パスワード適用時刻;
 

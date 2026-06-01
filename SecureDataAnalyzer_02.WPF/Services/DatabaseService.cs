@@ -154,7 +154,7 @@ namespace SecureDataAnalyzer_02.WPF.Services
         }
 
         /// <summary>
-        /// 全件を候補リスト形式で取得する（全件表示ボタン用）。
+        /// 全件を候補リスト形式で取得する（全件表示ボタン：初回表示用）。
         /// </summary>
         public async Task<IEnumerable<CustomerSearchResult>> GetAllAsync(int maxResults = 15)
         {
@@ -169,6 +169,32 @@ namespace SecureDataAnalyzer_02.WPF.Services
                 ORDER BY tokisaki_code
                 LIMIT  @max",
                 new { max = maxResults });
+        }
+
+        /// <summary>
+        /// ページング取得：指定オフセットから limit 件と総件数を同時に返す。
+        /// </summary>
+        /// <param name="offset">取得開始位置（0始まり）</param>
+        /// <param name="limit">取得件数</param>
+        public async Task<(IEnumerable<CustomerSearchResult> Items, int TotalCount)> GetPagedAsync(
+            int offset, int limit)
+        {
+            using var conn = new SqliteConnection(ConnectionString);
+            await conn.OpenAsync();
+
+            var items = await conn.QueryAsync<CustomerSearchResult>(@"
+                SELECT tokisaki_code AS Code,
+                       name1        AS Name1,
+                       kana_name    AS KanaName
+                FROM   TokisakiMaster
+                ORDER BY tokisaki_code
+                LIMIT  @limit OFFSET @offset",
+                new { limit, offset });
+
+            var total = await conn.ExecuteScalarAsync<int>(
+                "SELECT COUNT(*) FROM TokisakiMaster");
+
+            return (items, total);
         }
 
         /// <summary>
