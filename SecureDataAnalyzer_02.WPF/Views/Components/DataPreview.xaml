@@ -1,16 +1,232 @@
 ﻿<UserControl x:Class="SecureDataAnalyzer_02.WPF.Views.Components.DataPreview"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <Grid Background="White">
-        <DataGrid x:Name="PreviewGrid" 
-                  AutoGenerateColumns="True" 
-                  IsReadOnly="True" 
-                  VerticalScrollBarVisibility="Auto" 
-                  HorizontalScrollBarVisibility="Auto"
-                  AlternatingRowBackground="#F9F9F9"/>
 
-        <TextBlock x:Name="EmptyMessage" Text="CSVプレビュー" 
-                   VerticalAlignment="Center" HorizontalAlignment="Center" 
-                   Foreground="Gray" Visibility="Visible"/>
+    <Grid Background="White">
+        <Grid.RowDefinitions>
+            <!-- 検索バー -->
+            <RowDefinition Height="Auto"/>
+            <!-- 詳細パネル -->
+            <RowDefinition Height="Auto"/>
+            <!-- DataGrid -->
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- ══════════════════════════════════════════════════════
+             Row 0: 検索バー
+             ══════════════════════════════════════════════════════ -->
+        <Border Grid.Row="0" Background="#EAEEF5"
+                BorderBrush="#B0BDD0" BorderThickness="0,0,0,1" Padding="8,6">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- 検索テキストボックス（ポップアップの PlacementTarget） -->
+                <Grid Grid.Column="0">
+                    <TextBox x:Name="SearchBox"
+                             Height="32"
+                             FontSize="13"
+                             VerticalContentAlignment="Center"
+                             Padding="8,0"
+                             BorderBrush="#90A0B8"
+                             TextChanged="SearchBox_TextChanged"
+                             KeyDown="SearchBox_KeyDown"
+                             GotFocus="SearchBox_GotFocus"
+                             LostFocus="SearchBox_LostFocus"/>
+
+                    <!-- プレースホルダー -->
+                    <TextBlock x:Name="SearchPlaceholder"
+                               Text="🔍  得意先名・ひらがな・略称で検索…"
+                               Foreground="#90A0B8" FontSize="12.5"
+                               VerticalAlignment="Center" Margin="10,0"
+                               IsHitTestVisible="False"/>
+
+                    <!-- 候補ポップアップ（PlacementTarget = SearchBox） -->
+                    <Popup x:Name="SuggestPopup"
+                           PlacementTarget="{Binding ElementName=SearchBox}"
+                           Placement="Bottom"
+                           AllowsTransparency="True"
+                           StaysOpen="True"
+                           IsOpen="False">
+                        <Border Background="White"
+                                BorderBrush="#90A0B8" BorderThickness="1">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="8" ShadowDepth="2" Opacity="0.18" Direction="270"/>
+                            </Border.Effect>
+                            <ListBox x:Name="SuggestList"
+                                     MinWidth="500" MaxHeight="320"
+                                     FontSize="12.5"
+                                     SelectionChanged="SuggestList_SelectionChanged"
+                                     KeyDown="SuggestList_KeyDown"
+                                     MouseDoubleClick="SuggestList_MouseDoubleClick"
+                                     Background="White"
+                                     BorderThickness="0"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                <ListBox.ItemContainerStyle>
+                                    <Style TargetType="ListBoxItem">
+                                        <Setter Property="Padding" Value="8,5"/>
+                                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                        <Style.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter Property="Background" Value="#E8EEF8"/>
+                                            </Trigger>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter Property="Background" Value="#C5D8F5"/>
+                                                <Setter Property="Foreground" Value="#1A1A1A"/>
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ListBox.ItemContainerStyle>
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="80"/>
+                                                <ColumnDefinition Width="260"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0"
+                                                       Text="{Binding Code}"
+                                                       FontFamily="Consolas" FontSize="11.5"
+                                                       Foreground="#4A6FA5" FontWeight="Bold"/>
+                                            <TextBlock Grid.Column="1"
+                                                       Text="{Binding Name1}"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Grid.Column="2"
+                                                       Text="{Binding KanaName}"
+                                                       Foreground="#6B7280" FontSize="11"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Border>
+                    </Popup>
+                </Grid>
+
+                <!-- 全件表示ボタン -->
+                <Button Grid.Column="1" x:Name="ShowAllBtn"
+                        Content="全件表示"
+                        Width="90" Height="32" Margin="8,0,0,0"
+                        FontSize="12"
+                        Background="#4A6FA5" Foreground="White"
+                        BorderThickness="0"
+                        Cursor="Hand"
+                        Click="ShowAllBtn_Click">
+                    <Button.Style>
+                        <Style TargetType="Button">
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border Background="{TemplateBinding Background}"
+                                                CornerRadius="3" Padding="8,4">
+                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter Property="Background" Value="#3A5F95"/>
+                                            </Trigger>
+                                            <Trigger Property="IsPressed" Value="True">
+                                                <Setter Property="Background" Value="#2A4F85"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </Button.Style>
+                </Button>
+            </Grid>
+        </Border>
+
+        <!-- ══════════════════════════════════════════════════════
+             Row 1: 得意先 詳細パネル（選択時に表示）
+             ══════════════════════════════════════════════════════ -->
+        <Border x:Name="DetailPanel" Grid.Row="1"
+                Visibility="Collapsed"
+                Background="#F4F7FC"
+                BorderBrush="#B0BDD0" BorderThickness="0,0,0,1"
+                Padding="12,10">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- 閉じるボタン -->
+                <Button Grid.Row="0"
+                        x:Name="CloseDetailBtn"
+                        Content="✕" Width="24" Height="24"
+                        HorizontalAlignment="Right" VerticalAlignment="Top"
+                        Margin="0,0,0,4"
+                        Background="Transparent" BorderThickness="0"
+                        Foreground="#888" FontSize="14"
+                        Cursor="Hand"
+                        Click="CloseDetailBtn_Click"/>
+
+                <!-- 1行目：コード・名称 -->
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,30,4">
+                    <TextBlock Text="【" Foreground="#4A6FA5" FontWeight="Bold" FontSize="13"/>
+                    <TextBlock x:Name="DetailCode" Foreground="#4A6FA5" FontWeight="Bold"
+                               FontFamily="Consolas" FontSize="13"/>
+                    <TextBlock Text="】" Foreground="#4A6FA5" FontWeight="Bold" FontSize="13" Margin="0,0,10,0"/>
+                    <TextBlock x:Name="DetailName1" FontWeight="Bold" FontSize="14" Foreground="#1A1A1A"/>
+                </StackPanel>
+
+                <!-- 2行目：略称・ひらがな -->
+                <WrapPanel Grid.Row="1" Margin="0,0,0,4">
+                    <TextBlock Text="略称: " Foreground="#6B7280" FontSize="12"/>
+                    <TextBlock x:Name="DetailRyakusho" FontSize="12" Margin="0,0,20,0"/>
+                    <TextBlock Text="ひらがな: " Foreground="#6B7280" FontSize="12"/>
+                    <TextBlock x:Name="DetailKana" FontSize="12" Foreground="#4B5563"/>
+                </WrapPanel>
+
+                <!-- 3行目：住所・電話・FAX -->
+                <WrapPanel Grid.Row="2">
+                    <TextBlock Text="〒" Foreground="#6B7280" FontSize="12"/>
+                    <TextBlock x:Name="DetailPostal" FontSize="12" Margin="0,0,8,0"/>
+                    <TextBlock x:Name="DetailAddress" FontSize="12" Margin="0,0,20,0"/>
+                    <TextBlock Text="TEL: " Foreground="#6B7280" FontSize="12"/>
+                    <TextBlock x:Name="DetailTel" FontSize="12" Margin="0,0,20,0"/>
+                    <TextBlock Text="FAX: " Foreground="#6B7280" FontSize="12"/>
+                    <TextBlock x:Name="DetailFax" FontSize="12"/>
+                </WrapPanel>
+            </Grid>
+        </Border>
+
+        <!-- ══════════════════════════════════════════════════════
+             Row 2: CSV プレビュー DataGrid
+             ══════════════════════════════════════════════════════ -->
+        <DataGrid x:Name="PreviewGrid"
+                  Grid.Row="2"
+                  AutoGenerateColumns="True"
+                  IsReadOnly="True"
+                  VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Auto"
+                  AlternatingRowBackground="#F5F7FA"
+                  GridLinesVisibility="Horizontal"
+                  HeadersVisibility="Column"
+                  FontSize="12"
+                  ColumnHeaderHeight="28"
+                  RowHeight="24">
+            <DataGrid.ColumnHeaderStyle>
+                <Style TargetType="DataGridColumnHeader">
+                    <Setter Property="Background" Value="#DDE3ED"/>
+                    <Setter Property="Foreground" Value="#2D3A4A"/>
+                    <Setter Property="FontWeight" Value="SemiBold"/>
+                    <Setter Property="Padding" Value="6,4"/>
+                </Style>
+            </DataGrid.ColumnHeaderStyle>
+        </DataGrid>
+
+        <TextBlock x:Name="EmptyMessage"
+                   Grid.Row="2"
+                   Text="CSV を読み込むと、ここにデータが表示されます"
+                   VerticalAlignment="Center" HorizontalAlignment="Center"
+                   Foreground="#B0BDD0" FontSize="14"
+                   Visibility="Visible"/>
     </Grid>
 </UserControl>
