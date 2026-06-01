@@ -179,39 +179,74 @@ namespace SecureDataAnalyzer_02.WPF.Services
             using var conn = new SqliteConnection(ConnectionString);
             await conn.OpenAsync();
 
-            var row = await conn.QuerySingleOrDefaultAsync(@"
-                SELECT tokisaki_code   AS 得意先コード,
-                       kana_name       AS 取引先名ひらがな,
-                       name1           AS 得意先名１,
-                       name2           AS 得意先名２,
-                       ryakusho        AS 得意先略称,
-                       postal_code     AS 郵便番号,
-                       address1        AS 住所１,
-                       address2        AS 住所２,
-                       address3        AS 住所３,
-                       tel             AS 電話番号,
-                       fax             AS FAX番号,
-                       nohinsaki_code  AS 納品先コード,
-                       tantosha_code   AS 担当者コード,
-                       sinyo_limit     AS 与信限度額,
-                       tanka_kubun1    AS 単価処理区分,
-                       tanka_unit1     AS 単価処理単位,
-                       tanka_kubun2    AS 単価処理区分_1kg未満,
-                       tanka_unit2     AS 単価処理単位_1kg未満,
-                       kingaku_kubun   AS 金額処理区分,
-                       tanka_kubun3    AS 単価処理区分_切板以外,
-                       tanka_unit3     AS 単価処理単位_切板以外,
-                       shouhizei_kubun AS 消費税計算処理区分,
-                       shouhizei_unit  AS 消費税計算処理単位,
-                       shouhizei_bunkai AS 消費税分解処理区分,
-                       weight_display  AS 重量表示,
-                       pw_date         AS 新パスワード適用年月日,
-                       pw_time         AS 新パスワード適用時刻
+            // ── SQLite の列名を英語のままとり、コード側で手動マッピングする ──
+            // （Dapper が日本語プロパティ名への自動マップに失敗するケースを回避）
+            var raw = await conn.QuerySingleOrDefaultAsync(@"
+                SELECT tokisaki_code,
+                       kana_name,
+                       name1,
+                       name2,
+                       ryakusho,
+                       postal_code,
+                       address1,
+                       address2,
+                       address3,
+                       tel,
+                       fax,
+                       nohinsaki_code,
+                       tantosha_code,
+                       sinyo_limit,
+                       tanka_kubun1,
+                       tanka_unit1,
+                       tanka_kubun2,
+                       tanka_unit2,
+                       kingaku_kubun,
+                       tanka_kubun3,
+                       tanka_unit3,
+                       shouhizei_kubun,
+                       shouhizei_unit,
+                       shouhizei_bunkai,
+                       weight_display,
+                       pw_date,
+                       pw_time
                 FROM   TokisakiMaster
                 WHERE  tokisaki_code = @code",
-                new { code });
+                new { code }) as IDictionary<string, object>;
 
-            return row;
+            if (raw == null) return null;
+
+            string S(string key) => raw.TryGetValue(key, out var v) ? v?.ToString() ?? "" : "";
+
+            return new TokisakiMaster
+            {
+                得意先コード          = S("tokisaki_code"),
+                取引先名ひらがな      = S("kana_name"),
+                得意先名１            = S("name1"),
+                得意先名２            = S("name2"),
+                得意先略称            = S("ryakusho"),
+                郵便番号              = S("postal_code"),
+                住所１                = S("address1"),
+                住所２                = S("address2"),
+                住所３                = S("address3"),
+                電話番号              = S("tel"),
+                FAX番号               = S("fax"),
+                納品先コード          = S("nohinsaki_code"),
+                担当者コード          = S("tantosha_code"),
+                与信限度額            = S("sinyo_limit"),
+                単価処理区分          = S("tanka_kubun1"),
+                単価処理単位          = S("tanka_unit1"),
+                単価処理区分_1kg未満  = S("tanka_kubun2"),
+                単価処理単位_1kg未満  = S("tanka_unit2"),
+                金額処理区分          = S("kingaku_kubun"),
+                単価処理区分_切板以外 = S("tanka_kubun3"),
+                単価処理単位_切板以外 = S("tanka_unit3"),
+                消費税計算処理区分    = S("shouhizei_kubun"),
+                消費税計算処理単位    = S("shouhizei_unit"),
+                消費税分解処理区分    = S("shouhizei_bunkai"),
+                重量表示              = S("weight_display"),
+                新パスワード適用年月日 = S("pw_date"),
+                新パスワード適用時刻   = S("pw_time"),
+            };
         }
 
         /// <summary>

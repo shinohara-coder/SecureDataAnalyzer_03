@@ -13,7 +13,7 @@ using SecureDataAnalyzer_02.WPF.Services;
 namespace SecureDataAnalyzer_02.WPF.Views.Components
 {
     /// <summary>
-    /// CSVデータのプレビュー表示と得意先インクリメンタルサーチを統括するコントロール
+    /// CSV データのプレビューと得意先インクリメンタルサーチ・詳細レコード表示を統括するコントロール
     /// </summary>
     public partial class DataPreview : UserControl
     {
@@ -26,8 +26,8 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
         /// <summary>デバウンス用キャンセルトークン</summary>
         private CancellationTokenSource? _searchCts;
 
-        /// <summary>デバウンス遅延（ミリ秒）</summary>
-        private const int DebounceMs = 300;
+        /// <summary>デバウンス遅延（ms）：要件は 300ms 以内</summary>
+        private const int DebounceMs = 250;
 
         // ─────────────────────────────────────────────────
         // 初期化
@@ -43,9 +43,7 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
         // 外部公開 API
         // ─────────────────────────────────────────────────
 
-        /// <summary>
-        /// 外部（RibbonPanel）から受け取った DataTable を DataGrid に表示する。
-        /// </summary>
+        /// <summary>外部（RibbonPanel）から受け取った DataTable を DataGrid に表示する。</summary>
         public void DisplayData(DataTable dt)
         {
             PreviewGrid.ItemsSource = dt.DefaultView;
@@ -54,9 +52,7 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
                                       : Visibility.Visible;
         }
 
-        /// <summary>
-        /// 外部から DatabaseService を取得する（RibbonPanel の DB インポートで使用）。
-        /// </summary>
+        /// <summary>外部から DatabaseService を取得する（RibbonPanel の DB インポートで使用）。</summary>
         public DatabaseService DbService => _db;
 
         // ─────────────────────────────────────────────────
@@ -79,7 +75,7 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
             SearchPlaceholder.Visibility = string.IsNullOrEmpty(SearchBox.Text)
                 ? Visibility.Visible : Visibility.Collapsed;
 
-            // デバウンス：前の検索リクエストをキャンセルして再発行
+            // デバウンス：前のリクエストをキャンセルして再発行
             _searchCts?.Cancel();
             _searchCts = new CancellationTokenSource();
             var token = _searchCts.Token;
@@ -97,17 +93,14 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
             }, token);
         }
 
-        /// <summary>
-        /// キーボード操作：↓で候補リストにフォーカス移動、Esc でポップアップを閉じる
-        /// </summary>
+        /// <summary>↓ で候補リストへ移動、Esc でポップアップを閉じる</summary>
         private void SearchBox_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Down && SuggestPopup.IsOpen && SuggestList.Items.Count > 0)
             {
                 SuggestList.Focus();
                 SuggestList.SelectedIndex = 0;
-                var item = SuggestList.ItemContainerGenerator.ContainerFromIndex(0) as ListBoxItem;
-                item?.Focus();
+                (SuggestList.ItemContainerGenerator.ContainerFromIndex(0) as ListBoxItem)?.Focus();
                 e.Handled = true;
             }
             else if (e.Key == Key.Escape)
@@ -116,9 +109,7 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
             }
         }
 
-        /// <summary>
-        /// 「全件表示」ボタン：DB から先頭 15 件を取得して候補を表示する
-        /// </summary>
+        /// <summary>「全件表示」ボタン：DB から先頭 15 件を取得して候補を表示する</summary>
         private async void ShowAllBtn_Click(object sender, RoutedEventArgs e)
         {
             SearchBox.Text = "";
@@ -131,34 +122,44 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
         // 候補リスト イベント
         // ─────────────────────────────────────────────────
 
-        private void SuggestList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        /// <summary>
+        /// アイテム上のシングルクリックで確定する。
+        /// PreviewMouseLeftButtonDown は Popup 内でも確実に発火する。
+        /// </summary>
+        private void SuggestList_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            // マウス移動だけでは確定しない。Enter またはダブルクリックで確定。
-        }
+            // クリック位置に対応する ListBoxItem を特定する
+            var item = ItemsControl.ContainerFromElement(
+                SuggestList,
+                e.OriginalSource as DependencyObject) as ListBoxItem;
 
-        private void SuggestList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
-        {
-            ConfirmSelection();
+            if (item?.DataContext is CustomerSearchResult result)
+            {
+                SuggestList.SelectedItem = result;
+                ConfirmSelection();
+                e.Handled = true;   // 二重発火を防ぐ
+            }
         }
 
         private void SuggestList_KeyDown(object sender, KeyEventArgs e)
         {
-            if (e.Key == Key.Enter)
+            switch (e.Key)
             {
-                ConfirmSelection();
-                e.Handled = true;
-            }
-            else if (e.Key == Key.Escape)
-            {
-                CloseSuggestPopup();
-                SearchBox.Focus();
-                e.Handled = true;
-            }
-            else if (e.Key == Key.Up && SuggestList.SelectedIndex == 0)
-            {
-                // リスト先頭から SearchBox に戻る
-                SearchBox.Focus();
-                e.Handled = true;
+                case Key.Enter:
+                    ConfirmSelection();
+                    e.Handled = true;
+                    break;
+
+                case Key.Escape:
+                    CloseSuggestPopup();
+                    SearchBox.Focus();
+                    e.Handled = true;
+                    break;
+
+                case Key.Up when SuggestList.SelectedIndex == 0:
+                    SearchBox.Focus();
+                    e.Handled = true;
+                    break;
             }
         }
 
@@ -173,28 +174,22 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
 
         private async Task ExecuteSearchAsync(string query, CancellationToken token)
         {
-            System.Collections.Generic.IEnumerable<CustomerSearchResult> results;
+            IEnumerable<CustomerSearchResult> results;
 
             if (string.IsNullOrWhiteSpace(query))
-            {
                 results = Array.Empty<CustomerSearchResult>();
-            }
             else
-            {
                 results = await _db.SearchAsync(query);
-            }
 
             if (token.IsCancellationRequested) return;
 
             Dispatcher.Invoke(() => UpdateSuggestList(results));
         }
 
-        private void UpdateSuggestList(System.Collections.Generic.IEnumerable<CustomerSearchResult> results)
+        private void UpdateSuggestList(IEnumerable<CustomerSearchResult> results)
         {
             SuggestList.ItemsSource = results;
-
-            var hasItems = SuggestList.Items.Count > 0;
-            SuggestPopup.IsOpen = hasItems;
+            SuggestPopup.IsOpen = SuggestList.Items.Count > 0;
         }
 
         private void CloseSuggestPopup()
@@ -206,35 +201,97 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
         {
             if (SuggestList.SelectedItem is CustomerSearchResult selected)
             {
+                var code = selected.Code;   // クロージャで保持
                 CloseSuggestPopup();
-                LoadDetailAsync(selected.Code);
+
+                // UI スレッドをブロックしない非同期呼び出し
+                Task.Run(() => LoadAndShowDetailAsync(code));
             }
         }
 
-        private async void LoadDetailAsync(string code)
-        {
-            var customer = await _db.GetByCodeAsync(code);
-            if (customer == null) return;
+        // ─────────────────────────────────────────────────
+        // 詳細レコード表示
+        // ─────────────────────────────────────────────────
 
-            Dispatcher.Invoke(() => ShowDetail(customer));
+        private async Task LoadAndShowDetailAsync(string code)
+        {
+            try
+            {
+                var customer = await _db.GetByCodeAsync(code);
+                if (customer == null)
+                {
+                    Dispatcher.Invoke(() =>
+                        MessageBox.Show($"得意先コード [{code}] のデータが見つかりませんでした。",
+                            "データなし", MessageBoxButton.OK, MessageBoxImage.Warning));
+                    return;
+                }
+                Dispatcher.Invoke(() => BindDetailFields(customer));
+            }
+            catch (Exception ex)
+            {
+                Dispatcher.Invoke(() =>
+                    MessageBox.Show($"データ取得エラー: {ex.Message}",
+                        "エラー", MessageBoxButton.OK, MessageBoxImage.Error));
+            }
         }
 
-        private void ShowDetail(TokisakiMaster c)
+        /// <summary>
+        /// 取得した TokisakiMaster の全フィールドを詳細パネルの各 TextBlock に反映する。
+        /// </summary>
+        private void BindDetailFields(TokisakiMaster c)
         {
-            DetailCode.Text      = c.得意先コード;
-            DetailName1.Text     = c.得意先名１;
-            DetailRyakusho.Text  = c.得意先略称;
-            DetailKana.Text      = c.取引先名ひらがな;
-            DetailPostal.Text    = c.郵便番号;
-            DetailTel.Text       = c.電話番号;
-            DetailFax.Text       = c.FAX番号;
+            // ── ヘッダー ──
+            DetailCode.Text  = c.得意先コード;
+            DetailName1.Text = c.得意先名１;
 
-            // 住所を結合して表示
-            var addr = string.Join(" ", new[] { c.住所１, c.住所２, c.住所３ }
-                                            .Where(s => !string.IsNullOrWhiteSpace(s)));
-            DetailAddress.Text = addr;
+            // ── 基本情報 ──
+            DetailRyakusho.Text = c.得意先略称;
+            DetailKana.Text     = c.取引先名ひらがな;
+            DetailName2.Text    = c.得意先名２;
+
+            // ── 住所・連絡先 ──
+            DetailPostal.Text  = FormatPostal(c.郵便番号);
+            DetailTel.Text     = c.電話番号;
+            DetailFax.Text     = c.FAX番号;
+            DetailAddr1.Text   = c.住所１;
+            DetailAddr2.Text   = c.住所２;
+            DetailAddr3.Text   = c.住所３;
+
+            // ── 管理情報 ──
+            DetailNohinsakiCode.Text  = c.納品先コード;
+            DetailTantoshaCode.Text   = c.担当者コード;
+            DetailSinyoLimit.Text     = string.IsNullOrWhiteSpace(c.与信限度額) ? "―" : c.与信限度額;
+            DetailWeightDisplay.Text  = c.重量表示;
+
+            // ── 単価・金額処理区分 ──
+            DetailTankaKubun1.Text = c.単価処理区分;
+            DetailTankaUnit1.Text  = c.単価処理単位;
+            DetailTankaKubun2.Text = c.単価処理区分_1kg未満;
+            DetailTankaUnit2.Text  = c.単価処理単位_1kg未満;
+            DetailKingakuKubun.Text = c.金額処理区分;
+            DetailTankaKubun3.Text = c.単価処理区分_切板以外;
+            DetailTankaUnit3.Text  = c.単価処理単位_切板以外;
+
+            // ── 消費税処理 ──
+            DetailShouhizeiKubun.Text   = c.消費税計算処理区分;
+            DetailShouhizeiUnit.Text    = c.消費税計算処理単位;
+            DetailShouhizeiBunkai.Text  = c.消費税分解処理区分;
+
+            // ── パスワード管理 ──
+            DetailPwDate.Text = string.IsNullOrWhiteSpace(c.新パスワード適用年月日) ? "―" : c.新パスワード適用年月日;
+            DetailPwTime.Text = string.IsNullOrWhiteSpace(c.新パスワード適用時刻)   ? "―" : c.新パスワード適用時刻;
 
             DetailPanel.Visibility = Visibility.Visible;
+        }
+
+        /// <summary>郵便番号を 〒XXX-XXXX 形式に整形する（7桁の場合のみ）</summary>
+        private static string FormatPostal(string raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw)) return "";
+            var digits = new string(raw.Where(char.IsDigit).ToArray());
+            if (digits.Length == 7)
+                return $"〒{digits[..3]}-{digits[3..]}";
+            return raw;
         }
     }
 }
