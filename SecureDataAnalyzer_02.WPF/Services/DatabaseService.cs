@@ -337,12 +337,12 @@ namespace SecureDataAnalyzer_02.WPF.Services
         }
 
         /// <summary>
-        /// デイリーテーブルの PRIMARY KEY 列名を返す（id を除く）。
-        /// 存在しない場合は null。
+        /// デイリーテーブルの PRIMARY KEY 列名と型を返す（id を除く）。
+        /// 存在しない場合は (null, null)。
         /// </summary>
-        public async Task<string?> GetDailyPrimaryKeyColumnAsync()
+        public async Task<(string? Column, string? Type)> GetDailyPrimaryKeyColumnAsync()
         {
-            if (!HasDailyTable()) return null;
+            if (!HasDailyTable()) return (null, null);
 
             using var conn = new SqliteConnection(ConnectionString);
             await conn.OpenAsync();
@@ -352,18 +352,22 @@ namespace SecureDataAnalyzer_02.WPF.Services
             {
                 int pk = row.TryGetValue("pk", out var pkObj) ? Convert.ToInt32(pkObj) : 0;
                 var name = row["name"]?.ToString() ?? "";
+                var type = row["type"]?.ToString() ?? "";
                 if (pk != 0 && name != "id")
-                    return name;
+                    return (name, type.ToUpperInvariant());
             }
-            return null;
+            return (null, null);
         }
 
         /// <summary>
         /// 指定した列名でデイリーデータテーブルを新規作成する。
         /// <paramref name="primaryKeyColumn"/> を指定するとその列を PRIMARY KEY とする（id 列なし）。
+        /// <paramref name="primaryKeyIsInteger"/> が true の場合は INTEGER 型として定義する。
         /// </summary>
         public async Task CreateDailyTableAsync(
-            IEnumerable<string> columns, string? primaryKeyColumn = null)
+            IEnumerable<string> columns,
+            string? primaryKeyColumn   = null,
+            bool   primaryKeyIsInteger = false)
         {
             var colList = columns.ToList();
             string colDefs;
@@ -372,10 +376,12 @@ namespace SecureDataAnalyzer_02.WPF.Services
             if (primaryKeyColumn != null
                 && colList.Contains(primaryKeyColumn, StringComparer.Ordinal))
             {
-                // 見積番号など業務キーを PRIMARY KEY にする（AUTOINCREMENT id なし）
+                // 業務キーを PRIMARY KEY にする（AUTOINCREMENT id なし）
+                // primaryKeyIsInteger=true の場合は INTEGER 型（数値ソート対応）
+                string pkType = primaryKeyIsInteger ? "INTEGER" : "TEXT";
                 colDefs = string.Join(",\n    ", colList.Select(c =>
                     string.Equals(c, primaryKeyColumn, StringComparison.Ordinal)
-                        ? $"\"{c}\" TEXT PRIMARY KEY"
+                        ? $"\"{c}\" {pkType} PRIMARY KEY"
                         : $"\"{c}\" TEXT"));
                 leadingCols = "imported_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),";
             }
@@ -471,7 +477,10 @@ namespace SecureDataAnalyzer_02.WPF.Services
                     "得意先コードを含むCSVを読み込んでから再度お試しください。");
 
             bool hasOrderCol = columns.Contains(orderColumn, StringComparer.Ordinal);
-            string orderBy   = hasOrderCol ? $"ORDER BY \"{orderColumn}\" DESC" : "";
+            // CAST でテキスト型列でも数値降順ソートを保証する
+            string orderBy   = hasOrderCol
+                ? $"ORDER BY CAST(\"{orderColumn}\" AS INTEGER) DESC"
+                : "";
 
             var rows = (await conn.QueryAsync(
                     $"SELECT * FROM {DailyTableName} " +
@@ -487,8 +496,11 @@ namespace SecureDataAnalyzer_02.WPF.Services
         /// 既存の daily_data テーブルを <paramref name="primaryKeyColumn"/> を
         /// PRIMARY KEY として再構築する。重複行は imported_at が最新のものを残す。
         /// </summary>
+        /// <param name="primaryKeyIsInteger">true の場合 PRIMARY KEY を INTEGER 型で定義する</param>
         /// <returns>再構築後のテーブル内総件数</returns>
-        public async Task<int> RebuildDailyTableAsync(string primaryKeyColumn)
+        public async Task<int> RebuildDailyTableAsync(
+            string primaryKeyColumn,
+            bool   primaryKeyIsInteger = false)
         {
             // 現在のデータ列を取得
             var currentColumns = await GetDailyTableColumnsAsync();
@@ -516,9 +528,10 @@ namespace SecureDataAnalyzer_02.WPF.Services
             // テーブルを削除して作り直し（primaryKeyColumn を PRIMARY KEY に設定）
             await conn.ExecuteAsync($"DROP TABLE IF EXISTS {DailyTableName}");
 
+            string pkType = primaryKeyIsInteger ? "INTEGER" : "TEXT";
             var colDefs = string.Join(",\n    ", currentColumns.Select(c =>
                 string.Equals(c, primaryKeyColumn, StringComparison.Ordinal)
-                    ? $"\"{c}\" TEXT PRIMARY KEY"
+                    ? $"\"{c}\" {pkType} PRIMARY KEY"
                     : $"\"{c}\" TEXT"));
 
             await conn.ExecuteAsync($@"

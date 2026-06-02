@@ -20,6 +20,9 @@ namespace SecureDataAnalyzer_02.WPF.Services
         /// <summary>業務上のプライマリキーとして扱う列名。</summary>
         private const string PrimaryKeyColumn = "見積番号";
 
+        /// <summary>プライマリキーを INTEGER 型とするかどうか（数値ソート対応）。</summary>
+        private const bool PrimaryKeyIsInteger = true;
+
         public DailyCsvImportService(DatabaseService db) => _db = db;
 
         // ─────────────────────────────────────────────────
@@ -42,20 +45,24 @@ namespace SecureDataAnalyzer_02.WPF.Services
 
             if (isFirst)
             {
-                // 初回：見積番号がある場合は PRIMARY KEY として生成
+                // 初回：見積番号がある場合は INTEGER PRIMARY KEY として生成
                 string? pkCol = headers.Contains(PrimaryKeyColumn, StringComparer.Ordinal)
                     ? PrimaryKeyColumn : null;
-                await _db.CreateDailyTableAsync(headers, pkCol);
+                await _db.CreateDailyTableAsync(headers, pkCol, PrimaryKeyIsInteger);
             }
             else
             {
-                // ── 既存テーブルが見積番号を PK としていない場合は自動再構築 ──
-                var currentPk = await _db.GetDailyPrimaryKeyColumnAsync();
-                if (!string.Equals(currentPk, PrimaryKeyColumn, StringComparison.Ordinal))
+                // ── 既存テーブルが見積番号を INTEGER PK としていない場合は自動再構築 ──
+                var (currentPk, currentPkType) = await _db.GetDailyPrimaryKeyColumnAsync();
+                bool pkNameOk = string.Equals(currentPk, PrimaryKeyColumn, StringComparison.Ordinal);
+                bool pkTypeOk = string.Equals(currentPkType, "INTEGER", StringComparison.OrdinalIgnoreCase);
+
+                if (!pkNameOk || !pkTypeOk)
                 {
                     var existingCols = await _db.GetDailyTableColumnsAsync();
+                    // 見積番号列が存在する場合のみ再構築（存在しない場合はスキーマ検証で弾く）
                     if (existingCols.Contains(PrimaryKeyColumn, StringComparer.Ordinal))
-                        await _db.RebuildDailyTableAsync(PrimaryKeyColumn);
+                        await _db.RebuildDailyTableAsync(PrimaryKeyColumn, PrimaryKeyIsInteger);
                 }
 
                 // スキーマ検証
