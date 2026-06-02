@@ -250,9 +250,9 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
         private void CloseDailyDataBtn_Click(object sender, RoutedEventArgs e)
         {
             DailyDataPanel.Visibility = Visibility.Collapsed;
-            // 得意先が選択済みであれば詳細パネルを再表示
+            // 企業が選択済みであれば得意先マスター詳細パネルを（再）読み込みして表示
             if (!string.IsNullOrEmpty(SelectedCompanyCode))
-                DetailPanel.Visibility = Visibility.Visible;
+                Task.Run(() => LoadAndShowDetailAsync(SelectedCompanyCode));
         }
 
         // ─────────────────────────────────────────────────
@@ -384,13 +384,12 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
         // 内部ロジック：確定・詳細表示
         // ─────────────────────────────────────────────────
 
-        private void ConfirmSelection()
+        private async void ConfirmSelection()
         {
             if (SuggestList.SelectedItem is CustomerSearchResult selected)
             {
                 var code = selected.Code;
 
-                // 選択中の企業を保持（RibbonPanel の「実行・更新」ボタンから参照）
                 SelectedCompanyCode = code;
                 SelectedCompanyName = selected.Name1;
 
@@ -403,7 +402,16 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
                 SearchBox.TextChanged += SearchBox_TextChanged;
                 SearchBox.CaretIndex = SearchBox.Text.Length;
 
-                Task.Run(() => LoadAndShowDetailAsync(code));
+                if (_db.HasDailyTable())
+                {
+                    // デイリーデータが存在する場合 → デイリーパネルを自動表示
+                    await ShowDailyDataAsync(code, selected.Name1);
+                }
+                else
+                {
+                    // デイリーデータ未読込の場合 → 得意先マスター詳細パネルを表示
+                    Task.Run(() => LoadAndShowDetailAsync(code));
+                }
             }
         }
 

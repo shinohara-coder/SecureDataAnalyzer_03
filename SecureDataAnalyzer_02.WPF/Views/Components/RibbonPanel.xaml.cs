@@ -192,30 +192,6 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
         }
 
         // ─────────────────────────────────────────────────
-        // 実行・更新（デイリーデータ表示）
-        // ─────────────────────────────────────────────────
-
-        private async void ExecuteBtn_Click(object sender, RoutedEventArgs e)
-        {
-            var mainWindow    = Window.GetWindow(this) as MainWindow;
-            var previewControl = mainWindow?.FindName("MyPreview") as DataPreview;
-            if (previewControl == null) return;
-
-            var code = previewControl.SelectedCompanyCode;
-            var name = previewControl.SelectedCompanyName;
-
-            if (string.IsNullOrEmpty(code))
-            {
-                MessageBox.Show(
-                    "先に検索窓から企業を選択してください。",
-                    "企業未選択", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
-            await previewControl.ShowDailyDataAsync(code, name);
-        }
-
-        // ─────────────────────────────────────────────────
         // グラフ作成
         // ─────────────────────────────────────────────────
 
