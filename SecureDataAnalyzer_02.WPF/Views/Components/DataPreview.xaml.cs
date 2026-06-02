@@ -104,6 +104,12 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
         /// <summary>外部から DatabaseService を取得する（RibbonPanel の DB インポートで使用）。</summary>
         public DatabaseService DbService => _db;
 
+        /// <summary>現在検索窓で確定している得意先コード（未選択時は空文字）。</summary>
+        public string SelectedCompanyCode { get; private set; } = "";
+
+        /// <summary>現在検索窓で確定している得意先名１（未選択時は空文字）。</summary>
+        public string SelectedCompanyName { get; private set; } = "";
+
         // ─────────────────────────────────────────────────
         // 検索バー イベント
         // ─────────────────────────────────────────────────
@@ -241,6 +247,68 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
             DetailPanel.Visibility = Visibility.Collapsed;
         }
 
+        private void CloseDailyDataBtn_Click(object sender, RoutedEventArgs e)
+        {
+            DailyDataPanel.Visibility = Visibility.Collapsed;
+            // 得意先が選択済みであれば詳細パネルを再表示
+            if (!string.IsNullOrEmpty(SelectedCompanyCode))
+                DetailPanel.Visibility = Visibility.Visible;
+        }
+
+        // ─────────────────────────────────────────────────
+        // 外部公開 API：デイリーデータ表示
+        // ─────────────────────────────────────────────────
+
+        /// <summary>
+        /// 指定企業のデイリーデータを daily_data テーブルから取得し、
+        /// 詳細エリアに切り替えて表示する。
+        /// </summary>
+        public async Task ShowDailyDataAsync(string code, string name)
+        {
+            try
+            {
+                var (columns, rows) = await _db.GetDailyDataByCodeAsync(code);
+
+                // IDictionary<string,object> のリストを DataTable に変換
+                var dt = new DataTable();
+                foreach (var col in columns)
+                    dt.Columns.Add(col);
+
+                foreach (var row in rows)
+                {
+                    var dr = dt.NewRow();
+                    foreach (var col in columns)
+                    {
+                        row.TryGetValue(col, out var val);
+                        dr[col] = val?.ToString() ?? "";
+                    }
+                    dt.Rows.Add(dr);
+                }
+
+                // UI 更新
+                DailyDetailCode.Text   = code;
+                DailyDetailName1.Text  = name;
+                DailyRecordCount.Text  = $"{dt.Rows.Count:N0} 件";
+                DailyDataGrid.ItemsSource  = dt.DefaultView;
+                DailyEmptyMessage.Visibility = dt.Rows.Count > 0
+                    ? Visibility.Collapsed : Visibility.Visible;
+
+                // 詳細パネルと入れ替え
+                DetailPanel.Visibility    = Visibility.Collapsed;
+                DailyDataPanel.Visibility = Visibility.Visible;
+            }
+            catch (InvalidOperationException ex)
+            {
+                MessageBox.Show(ex.Message, "実行できません",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"データ取得エラー: {ex.Message}", "エラー",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
         // ─────────────────────────────────────────────────
         // 内部ロジック：検索
         // ─────────────────────────────────────────────────
@@ -321,6 +389,10 @@ namespace SecureDataAnalyzer_02.WPF.Views.Components
             if (SuggestList.SelectedItem is CustomerSearchResult selected)
             {
                 var code = selected.Code;
+
+                // 選択中の企業を保持（RibbonPanel の「実行・更新」ボタンから参照）
+                SelectedCompanyCode = code;
+                SelectedCompanyName = selected.Name1;
 
                 CloseSuggestPopup();
 

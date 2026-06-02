@@ -5,8 +5,10 @@
     <Border Background="#F3F3F3" BorderBrush="Gray" BorderThickness="0,0,0,1">
         <Grid>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10">
-                <Button x:Name="CsvImportBtn" Content="CSV読込" Width="100" Height="30" Click="CsvImportBtn_Click"/>
+                <Button x:Name="CsvImportBtn" Content="得意先マスター" Width="110" Height="30" Click="CsvImportBtn_Click"/>
                 <Button x:Name="CreateGraphBtn" Content="グラフ作成" Width="100" Height="30" Margin="10,0,0,0" Click="CreateGraphBtn_Click"/>
+                <Button x:Name="DailyCsvBtn" Content="デイリーCSV読込" Width="120" Height="30" Margin="10,0,0,0" Click="DailyCsvBtn_Click"/>
+                <Button x:Name="ExecuteBtn" Content="実行・更新" Width="100" Height="30" Margin="10,0,0,0" Background="#3A7A5A" Foreground="White" BorderThickness="0" Click="ExecuteBtn_Click"/>
             </StackPanel>
 
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,20,0">

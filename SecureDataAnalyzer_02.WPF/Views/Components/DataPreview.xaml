@@ -467,6 +467,87 @@
         </Border>
 
         <!-- ══════════════════════════════════════════════
+             Row 1 (重ね): デイリーデータパネル（実行・更新ボタン押下時）
+             ══════════════════════════════════════════════ -->
+        <Border x:Name="DailyDataPanel"
+                Grid.Row="1"
+                Visibility="Collapsed"
+                Background="#F4F7FC"
+                BorderBrush="#4A9A6A" BorderThickness="0,0,0,2">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto" MaxHeight="380"/>
+                </Grid.RowDefinitions>
+
+                <!-- ── ヘッダー行 ── -->
+                <Border Grid.Row="0" Background="#3A7A5A" Padding="12,7">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0" Orientation="Horizontal">
+                            <TextBlock Text="【" Foreground="White" FontWeight="Bold" FontSize="14"/>
+                            <TextBlock x:Name="DailyDetailCode"
+                                       Foreground="#BFFFDA" FontWeight="Bold"
+                                       FontFamily="Consolas" FontSize="14"/>
+                            <TextBlock Text="】" Foreground="White" FontWeight="Bold"
+                                       FontSize="14" Margin="0,0,8,0"/>
+                            <TextBlock x:Name="DailyDetailName1"
+                                       Foreground="White" FontWeight="Bold" FontSize="15"
+                                       Margin="0,0,12,0"/>
+                            <TextBlock Text="のデイリーデータ" Foreground="#BFFFDA" FontSize="13"
+                                       VerticalAlignment="Center" Margin="0,0,16,0"/>
+                            <TextBlock x:Name="DailyRecordCount"
+                                       Foreground="White" FontSize="12"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+
+                        <Button Grid.Column="1" x:Name="CloseDailyDataBtn"
+                                Content="✕"
+                                Width="26" Height="26"
+                                Background="Transparent" BorderThickness="0"
+                                Foreground="#BFFFDA" FontSize="14"
+                                Cursor="Hand"
+                                Click="CloseDailyDataBtn_Click"/>
+                    </Grid>
+                </Border>
+
+                <!-- ── デイリーデータグリッド ── -->
+                <Grid Grid.Row="1">
+                    <DataGrid x:Name="DailyDataGrid"
+                              AutoGenerateColumns="True"
+                              IsReadOnly="True"
+                              VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Auto"
+                              AlternatingRowBackground="#F0FAF4"
+                              GridLinesVisibility="Horizontal"
+                              HeadersVisibility="Column"
+                              FontSize="12"
+                              ColumnHeaderHeight="28"
+                              RowHeight="24">
+                        <DataGrid.ColumnHeaderStyle>
+                            <Style TargetType="DataGridColumnHeader">
+                                <Setter Property="Background" Value="#C8E6D4"/>
+                                <Setter Property="Foreground" Value="#1A3A2A"/>
+                                <Setter Property="FontWeight" Value="SemiBold"/>
+                                <Setter Property="Padding" Value="6,4"/>
+                            </Style>
+                        </DataGrid.ColumnHeaderStyle>
+                    </DataGrid>
+
+                    <TextBlock x:Name="DailyEmptyMessage"
+                               Text="この企業のデイリーデータは存在しません"
+                               VerticalAlignment="Center" HorizontalAlignment="Center"
+                               Foreground="#6AAA8A" FontSize="13"
+                               Visibility="Collapsed"/>
+                </Grid>
+            </Grid>
+        </Border>
+
+        <!-- ══════════════════════════════════════════════
              Row 2: CSV プレビュー DataGrid
              ══════════════════════════════════════════════ -->
         <DataGrid x:Name="PreviewGrid"

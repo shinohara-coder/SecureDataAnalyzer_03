@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Dapper;
@@ -291,6 +292,271 @@ namespace SecureDataAnalyzer_02.WPF.Services
             {
                 return false;
             }
+        }
+
+        // ─────────────────────────────────────────────────
+        // デイリーデータ（daily_data テーブル）
+        // ─────────────────────────────────────────────────
+
+        private const string DailyTableName = "daily_data";
+
+        /// <summary>
+        /// デイリーデータテーブルが存在するか確認する。
+        /// </summary>
+        public bool HasDailyTable()
+        {
+            try
+            {
+                using var conn = new SqliteConnection(ConnectionString);
+                conn.Open();
+                var count = conn.ExecuteScalar<int>(
+                    "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=@name",
+                    new { name = DailyTableName });
+                return count > 0;
+            }
+            catch { return false; }
+        }
+
+        /// <summary>
+        /// デイリーテーブルのデータ列名リストを返す（id・imported_at を除く）。
+        /// </summary>
+        public async Task<List<string>> GetDailyTableColumnsAsync()
+        {
+            using var conn = new SqliteConnection(ConnectionString);
+            await conn.OpenAsync();
+
+            var rows = await conn.QueryAsync($"PRAGMA table_info({DailyTableName})");
+            var columns = new List<string>();
+            foreach (IDictionary<string, object> row in rows)
+            {
+                var name = row["name"]?.ToString() ?? "";
+                if (name != "id" && name != "imported_at")
+                    columns.Add(name);
+            }
+            return columns;
+        }
+
+        /// <summary>
+        /// デイリーテーブルの PRIMARY KEY 列名を返す（id を除く）。
+        /// 存在しない場合は null。
+        /// </summary>
+        public async Task<string?> GetDailyPrimaryKeyColumnAsync()
+        {
+            if (!HasDailyTable()) return null;
+
+            using var conn = new SqliteConnection(ConnectionString);
+            await conn.OpenAsync();
+
+            var rows = await conn.QueryAsync($"PRAGMA table_info({DailyTableName})");
+            foreach (IDictionary<string, object> row in rows)
+            {
+                int pk = row.TryGetValue("pk", out var pkObj) ? Convert.ToInt32(pkObj) : 0;
+                var name = row["name"]?.ToString() ?? "";
+                if (pk != 0 && name != "id")
+                    return name;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// 指定した列名でデイリーデータテーブルを新規作成する。
+        /// <paramref name="primaryKeyColumn"/> を指定するとその列を PRIMARY KEY とする（id 列なし）。
+        /// </summary>
+        public async Task CreateDailyTableAsync(
+            IEnumerable<string> columns, string? primaryKeyColumn = null)
+        {
+            var colList = columns.ToList();
+            string colDefs;
+            string leadingCols;
+
+            if (primaryKeyColumn != null
+                && colList.Contains(primaryKeyColumn, StringComparer.Ordinal))
+            {
+                // 見積番号など業務キーを PRIMARY KEY にする（AUTOINCREMENT id なし）
+                colDefs = string.Join(",\n    ", colList.Select(c =>
+                    string.Equals(c, primaryKeyColumn, StringComparison.Ordinal)
+                        ? $"\"{c}\" TEXT PRIMARY KEY"
+                        : $"\"{c}\" TEXT"));
+                leadingCols = "imported_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),";
+            }
+            else
+            {
+                // フォールバック：AUTOINCREMENT id
+                colDefs = string.Join(",\n    ", colList.Select(c => $"\"{c}\" TEXT"));
+                leadingCols = "id INTEGER PRIMARY KEY AUTOINCREMENT,\n    " +
+                              "imported_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),";
+            }
+
+            var sql = $@"
+                CREATE TABLE IF NOT EXISTS {DailyTableName} (
+                    {leadingCols}
+                    {colDefs}
+                )";
+
+            using var conn = new SqliteConnection(ConnectionString);
+            await conn.OpenAsync();
+            await conn.ExecuteAsync(sql);
+        }
+
+        /// <summary>
+        /// デイリーデータを追記する。PRIMARY KEY が重複する行は最新データで上書きする。
+        /// </summary>
+        /// <returns>(追記・更新件数, テーブル総件数) のタプル</returns>
+        public async Task<(int Added, int Total)> AppendDailyDataAsync(
+            List<string> columns, List<string[]> rows)
+        {
+            var colNames   = string.Join(", ", columns.Select(c => $"\"{c}\""));
+            var paramNames = string.Join(", ", columns.Select((_, i) => $"@p{i}"));
+
+            // INSERT OR REPLACE: PRIMARY KEY 重複時は既存行を削除して新行を挿入（上書き）
+            var sql = $"INSERT OR REPLACE INTO {DailyTableName} ({colNames}) VALUES ({paramNames})";
+
+            using var conn = new SqliteConnection(ConnectionString);
+            await conn.OpenAsync();
+
+            using var tx = conn.BeginTransaction();
+            try
+            {
+                foreach (var row in rows)
+                {
+                    var param = new DynamicParameters();
+                    for (int i = 0; i < columns.Count; i++)
+                        param.Add($"p{i}", i < row.Length ? row[i] : "");
+                    await conn.ExecuteAsync(sql, param, tx);
+                }
+                tx.Commit();
+            }
+            catch
+            {
+                tx.Rollback();
+                throw;
+            }
+
+            var total = await conn.ExecuteScalarAsync<int>(
+                $"SELECT COUNT(*) FROM {DailyTableName}");
+            return (rows.Count, total);
+        }
+
+        /// <summary>
+        /// 指定した得意先コードに紐づく daily_data レコードを見積番号の降順で取得する。
+        /// テーブル未作成・「得意先コード」列なしの場合は <see cref="InvalidOperationException"/> をスローする。
+        /// </summary>
+        /// <returns>(表示列名リスト, 行リスト) のタプル</returns>
+        public async Task<(List<string> Columns, List<IDictionary<string, object>> Rows)>
+            GetDailyDataByCodeAsync(string tokisakiCode)
+        {
+            if (!HasDailyTable())
+                throw new InvalidOperationException(
+                    "デイリーデータがまだ読み込まれていません。\n" +
+                    "先に「デイリーCSV読込」ボタンでデータを読み込んでください。");
+
+            const string linkColumn  = "得意先コード";
+            const string orderColumn = "見積番号";
+
+            using var conn = new SqliteConnection(ConnectionString);
+            await conn.OpenAsync();
+
+            // id を除く全列を PRAGMA で取得（imported_at は表示する）
+            var columns = new List<string>();
+            var pragmaRows = await conn.QueryAsync($"PRAGMA table_info({DailyTableName})");
+            foreach (IDictionary<string, object> pr in pragmaRows)
+            {
+                var name = pr["name"]?.ToString() ?? "";
+                if (name != "id") columns.Add(name);
+            }
+
+            if (!columns.Contains(linkColumn, StringComparer.Ordinal))
+                throw new InvalidOperationException(
+                    $"daily_data テーブルに「{linkColumn}」列がありません。\n" +
+                    "得意先コードを含むCSVを読み込んでから再度お試しください。");
+
+            bool hasOrderCol = columns.Contains(orderColumn, StringComparer.Ordinal);
+            string orderBy   = hasOrderCol ? $"ORDER BY \"{orderColumn}\" DESC" : "";
+
+            var rows = (await conn.QueryAsync(
+                    $"SELECT * FROM {DailyTableName} " +
+                    $"WHERE \"{linkColumn}\" = @code {orderBy}",
+                    new { code = tokisakiCode }))
+                .Cast<IDictionary<string, object>>()
+                .ToList();
+
+            return (columns, rows);
+        }
+
+        /// <summary>
+        /// 既存の daily_data テーブルを <paramref name="primaryKeyColumn"/> を
+        /// PRIMARY KEY として再構築する。重複行は imported_at が最新のものを残す。
+        /// </summary>
+        /// <returns>再構築後のテーブル内総件数</returns>
+        public async Task<int> RebuildDailyTableAsync(string primaryKeyColumn)
+        {
+            // 現在のデータ列を取得
+            var currentColumns = await GetDailyTableColumnsAsync();
+            if (!currentColumns.Contains(primaryKeyColumn, StringComparer.Ordinal))
+                throw new InvalidOperationException(
+                    $"列 「{primaryKeyColumn}」 が daily_data テーブルに存在しないため再構築できません。");
+
+            using var conn = new SqliteConnection(ConnectionString);
+            await conn.OpenAsync();
+
+            // 全行読み込み（imported_at 昇順 → GroupBy.Last() で最新が残る）
+            var allRows = (await conn.QueryAsync(
+                    $"SELECT * FROM {DailyTableName} ORDER BY imported_at ASC"))
+                .Cast<IDictionary<string, object>>()
+                .ToList();
+
+            // 業務キーで重複排除：同一キーは最新（最後）の行を採用
+            var deduped = allRows
+                .GroupBy(r => r.TryGetValue(primaryKeyColumn, out var v)
+                              ? v?.ToString() ?? ""
+                              : "")
+                .Select(g => g.Last())
+                .ToList();
+
+            // テーブルを削除して作り直し（primaryKeyColumn を PRIMARY KEY に設定）
+            await conn.ExecuteAsync($"DROP TABLE IF EXISTS {DailyTableName}");
+
+            var colDefs = string.Join(",\n    ", currentColumns.Select(c =>
+                string.Equals(c, primaryKeyColumn, StringComparison.Ordinal)
+                    ? $"\"{c}\" TEXT PRIMARY KEY"
+                    : $"\"{c}\" TEXT"));
+
+            await conn.ExecuteAsync($@"
+                CREATE TABLE {DailyTableName} (
+                    imported_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+                    {colDefs}
+                )");
+
+            if (deduped.Count == 0) return 0;
+
+            // 再挿入（imported_at も明示的に指定して元の値を保持）
+            var allCols   = new[] { "imported_at" }.Concat(currentColumns).ToList();
+            var colNames  = string.Join(", ", allCols.Select(c => $"\"{c}\""));
+            var paramNms  = string.Join(", ", allCols.Select((_, i) => $"@p{i}"));
+            var insertSql = $"INSERT OR REPLACE INTO {DailyTableName} ({colNames}) VALUES ({paramNms})";
+
+            using var tx = conn.BeginTransaction();
+            try
+            {
+                foreach (var row in deduped)
+                {
+                    var param = new DynamicParameters();
+                    for (int i = 0; i < allCols.Count; i++)
+                    {
+                        row.TryGetValue(allCols[i], out var val);
+                        param.Add($"p{i}", val?.ToString() ?? "");
+                    }
+                    await conn.ExecuteAsync(insertSql, param, tx);
+                }
+                tx.Commit();
+            }
+            catch
+            {
+                tx.Rollback();
+                throw;
+            }
+
+            return deduped.Count;
         }
     }
 
